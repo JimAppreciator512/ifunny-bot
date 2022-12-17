@@ -27,6 +27,14 @@ client.on(Events.InteractionCreate, async interaction => {
 		return command.data.name === interaction.commandName;
 	});
 
+	// just in case the command that was called is undefined
+	if (command === undefined) {
+		const msg = `You somehow tried to call an undefined command "${interaction.commandName}." Good job!`;
+		console.log(msg);
+		await interaction.reply({ content: msg, ephemeral: true });
+		return;
+	}
+
 	// trying to execute the command
 	try {
 		// logging
@@ -47,12 +55,15 @@ const rest = new REST({ version: '10' }).setToken(config.token);
 // deploying the commands to discord
 (async () => {
 	try {
+		// mapping the commands to return their "data" prop
 		const payload = client.commands.map(command => {
 			return command.data;
 		});
 
+		// for debug purposes
 		console.log(payload);
 
+		// logging what commands are sent to the discord API
 		console.log("Loading commands:", payload.map(command => {
 			return command.name;
 		}).join(", "));
@@ -70,7 +81,8 @@ const rest = new REST({ version: '10' }).setToken(config.token);
 		// logging into discord
 		client.login(config.token);
 	} catch (error) {
-		// And of course, make sure you catch and log any errors!
+		// logging any errors
 		console.error(error);
 	}
 })();
+

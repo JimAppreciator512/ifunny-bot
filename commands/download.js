@@ -13,28 +13,26 @@ async function download(interaction) {
 	/// url validation
 
 	// testing if the url is from the expected domain
-	const correctURL = /https:\/\/ifunny\.co/;
+	const correctURL = /https:\/\/ifunny\.co\/(picture|video|gif)/;
+	let datatype;
 	if (!url.match(correctURL)) {
 		// the link is invalid
 		const msg = `${url} is an invalid link.`;
 		console.log(msg);
 		return interaction.reply(msg);
+	} else {
+		datatype = url.match(correctURL)[1];
 	}
 	
-	// for optimization, look at the URL to see whether it's an image or video
-	const datatype = /\/(picture|video)/;
-	if (!url.match(datatype)) {
+	console.log(`datatype ${datatype}`);
+
+	// evaluating
+	if (datatype === null) {
 		// the link is invalid
 		const msg = `${url} is an invalid iFunny.co link.`;
 		console.log(msg);
 		return interaction.reply(msg);
 	}
-	
-	// it passed the check, establishing what kind of data we're dealing with
-	const isImage = url.match(datatype)[1] === "picture";
-
-	// logging
-	console.log(`Found ${isImage ? "an image" : "a video"} at ${url}`);
 
 	// trying to get an HTTP request from that url
 	request(url, { json: true }, (err, res, _) => {
@@ -46,16 +44,40 @@ async function download(interaction) {
 			// transforming the paylod into a DOM
 			const dom = new JSDOM(res.body);
 
-			// forming the selector to look at
-			const sel = isImage ? "div._3ZEF > img" : "div._3ZEF > div > video";
+			// making selectors
+			const selEnum = {
+				"gif": "head > link[as=\"image\"]",
+				"picture": "div._3ZEF > img",
+				"video": "div._3ZEF > div > video"
+			}
+			const attribEnum = {
+				"gif": "href",
+				"picture": "src",
+				"video": "data-src"
+			}
+
+			// getting the selector and attribute
+			const sel = selEnum[datatype];
+			const attrib = attribEnum[datatype]
 			
-			// searching the DOM for a video/image tag
-			const result = dom.window.document.querySelector(sel)
-				// need to grab a conditional attribute based on the content type
-				.getAttribute(isImage ? "src" : "data-src");
+			// searching the DOM for a datatype tag
+			const el = dom.window.document.querySelector(sel);
+
+			// validation
+			if (el === null) {
+				const msg = `Couldn't find ${datatype} at ${url}`;
+				console.log(msg);
+				return interaction.reply(msg);
+			}
 
 			// logging
-			console.log(`Returning with the ${isImage ? "image" : "video"} from ${result}`);
+			console.log(`Found a ${datatype} at ${url}`);
+
+			// need to grab a conditional attribute based on the content type
+			const result = el.getAttribute(attrib);
+
+			// logging
+			console.log(`Returning with the ${datatype} from ${result}`);
 				
 			// replying to the user with the url
 			return interaction.reply(result);
