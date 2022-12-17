@@ -2,6 +2,8 @@ import { SlashCommandBuilder } from "discord.js";
 import request from "request";
 import { JSDOM } from "jsdom";
 
+const helpMsg = "Usage: /download link: https:\/\/ifunny.co\/(picture|video|gif)\/...";
+
 async function download(interaction) {
 	// getting the url to search in
 	/** @type String */
@@ -17,9 +19,8 @@ async function download(interaction) {
 	let datatype;
 	if (!url.match(correctURL)) {
 		// the link is invalid
-		const msg = `${url} is an invalid link.`;
-		console.log(msg);
-		return interaction.reply(msg);
+		console.log(`${url} is an invalid link.`);
+		return interaction.reply({ content: helpMsg, ephemeral: true });
 	} else {
 		datatype = url.match(correctURL)[1];
 	}
@@ -63,9 +64,9 @@ async function download(interaction) {
 
 			// validation
 			if (el === null) {
-				const msg = `Couldn't find ${datatype} at ${url}`;
+				const msg = `Couldn't find the ${datatype} at ${url}.`;
 				console.log(msg);
-				return interaction.reply(msg);
+				return interaction.reply({ content: msg, ephemeral: true });
 			}
 
 			// logging
@@ -90,7 +91,7 @@ const Download = {
 		.addStringOption(option => {
 			return option
 				.setName("link")
-				.setDescription("The link to look in")
+				.setDescription("An iFunny.co link e.g., ifunny.co\/video\/...")
 				.setRequired(true);
 		}),
 	execute: download
