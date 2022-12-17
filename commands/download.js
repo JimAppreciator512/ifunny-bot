@@ -24,8 +24,6 @@ async function download(interaction) {
 		datatype = url.match(correctURL)[1];
 	}
 	
-	console.log(`datatype ${datatype}`);
-
 	// evaluating
 	if (datatype === null) {
 		// the link is invalid
