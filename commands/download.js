@@ -1,6 +1,13 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, AttachmentBuilder } from "discord.js";
 import request from "request";
 import { JSDOM } from "jsdom";
+import Clipper from "image-clipper";
+import Canvas from "canvas";
+import dataUriToBuffer from "data-uri-to-buffer";
+
+Clipper.configure({
+	canvas: Canvas
+});
 
 const helpMsg =
 	"Usage: /download link: https://ifunny.co/(picture|video|gif)/...";
@@ -17,13 +24,11 @@ async function download(interaction) {
 
 	// testing if the url is from the expected domain
 	const correctURL = /https:\/\/ifunny\.co\/(picture|video|gif)/;
-	let datatype;
-	if (!url.match(correctURL)) {
+	const datatype = url.match(correctURL)[1];
+	if (datatype === undefined) {
 		// the link is invalid
 		console.log(`${url} is an invalid link.`);
 		return interaction.reply({ content: helpMsg, ephemeral: true });
-	} else {
-		datatype = url.match(correctURL)[1];
 	}
 
 	// evaluating
@@ -47,23 +52,17 @@ async function download(interaction) {
 			const dom = new JSDOM(res.body);
 
 			// making selectors
-			const selEnum = {
-				gif: 'head > link[as="image"]',
-				picture: "div._3ZEF > img",
-				video: "div._3ZEF > div > video",
-			};
-			const attribEnum = {
-				gif: "href",
-				picture: "src",
-				video: "data-src",
+			const dataset = {
+				gif: ['head > link[as="image"]', "href"],
+				picture: ["div._3ZEF > img", "src"],
+				video: ["div._3ZEF > div > video", "data-src"]
 			};
 
 			// getting the selector and attribute
-			const sel = selEnum[datatype];
-			const attrib = attribEnum[datatype];
+			const [selector, attribute] = dataset[datatype];
 
 			// searching the DOM for a datatype tag
-			const el = dom.window.document.querySelector(sel);
+			const el = dom.window.document.querySelector(selector);
 
 			// validation
 			if (el === null) {
@@ -76,13 +75,41 @@ async function download(interaction) {
 			console.log(`Found a ${datatype} at ${url}`);
 
 			// need to grab a conditional attribute based on the content type
-			const result = el.getAttribute(attrib);
+			const result = el.getAttribute(attribute);
 
 			// logging
 			console.log(`Returning with the ${datatype} from ${result}`);
 
-			// replying to the user with the url
-			return interaction.reply(result);
+			// auto-cropping the image if it is a picture
+			if (datatype === "picture") {
+				console.log(`Cropping picture found at ${url}...`);
+
+				// getting the filename
+				const fpattern = /co\/\w+\/(.*\.\w{3})$/;
+				const fname = result.match(fpattern)[1] ?? "failed";
+				console.log("setting filename", fname);
+
+				// starting Clipper
+				const image = Clipper(result, function() {
+					// getting dimensions
+					var height = this.getCanvas().height;
+					var width = this.getCanvas().width;
+
+					// cropping and uploading
+					this.crop(0, 0, width, (height - 20))
+						.toDataURL(function(cropped) {
+							interaction.reply({
+								files: [
+									new AttachmentBuilder()
+										.setName(fname)
+										.setFile(dataUriToBuffer(cropped))
+								]});
+						});
+				});
+			} else {
+				// replying to the user with the url
+				return interaction.reply(result);
+			}
 		}
 	});
 }
