@@ -7,7 +7,7 @@ async function user(interaction) {
 	/** @type String */
 	const input = interaction.options.getString("name");
 
-	if (input.len > 30) {
+	if (input.length > 30) {
 		return interaction.reply("That username is too long for me to understand.")
 	}
 
