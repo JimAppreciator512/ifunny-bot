@@ -26,6 +26,12 @@ async function download(interaction) {
 	/** @type String */
 	const url = interaction.options.getString("link");
 
+	// looking for buffer overflow
+	if (url.length > 100) {
+		console.log("Rejecting url:\n", url);
+		return interacton.reply("Url is an invalid link.");
+	}
+
 	// logging
 	console.log(`Looking in ${url}...`);
 
