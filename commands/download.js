@@ -5,6 +5,7 @@ import Clipper from "image-clipper";
 import Canvas from "canvas";
 import dataUriToBuffer from "data-uri-to-buffer";
 
+// configuring image cropping
 Clipper.configure({
 	canvas: Canvas
 });
@@ -12,10 +13,24 @@ Clipper.configure({
 const helpMsg =
 	"Usage: /download link: https://ifunny.co/(picture|video|gif)/...";
 
+/**
+ * a macro to quickly log to the console/file and discord
+ */
+function cdlog(message) {	
+	console.log(message);
+	return interaction.reply({ content: message, ephemeral: true });
+}
+
 async function download(interaction) {
 	// getting the url to search in
 	/** @type String */
 	const url = interaction.options.getString("link");
+
+	// looking for buffer overflow
+	if (url.length > 100) {
+		console.log("Rejecting url:\n", url);
+		return interacton.reply("Url is an invalid link.");
+	}
 
 	// logging
 	console.log(`Looking in ${url}...`);
@@ -23,21 +38,15 @@ async function download(interaction) {
 	/// url validation
 
 	// testing if the url is from the expected domain
-	const correctURL = /https:\/\/ifunny\.co\/(picture|video|gif)/;
+	const correctURL = /^https:\/\/ifunny\.co\/(picture|video|gif)/;
 	const datatype = url.match(correctURL)[1];
-	if (datatype === undefined) {
+	if (datatype === undefined || datatype === null) {
 		// the link is invalid
 		console.log(`${url} is an invalid link.`);
 		return interaction.reply({ content: helpMsg, ephemeral: true });
 	}
 
-	// evaluating
-	if (datatype === null) {
-		// the link is invalid
-		const msg = `${url} is an invalid iFunny.co link.`;
-		console.log(msg);
-		return interaction.reply(msg);
-	}
+	/// posting to the URL
 
 	// trying to get an HTTP request from that url
 	request(url, { json: true }, (err, res, _) => {
@@ -66,9 +75,7 @@ async function download(interaction) {
 
 			// validation
 			if (el === null) {
-				const msg = `Couldn't find the ${datatype} at ${url}.`;
-				console.log(msg);
-				return interaction.reply({ content: msg, ephemeral: true });
+				return cdlog(msg);
 			}
 
 			// logging
@@ -77,16 +84,13 @@ async function download(interaction) {
 			// need to grab a conditional attribute based on the content type
 			const result = el.getAttribute(attribute);
 
-			// logging
-			console.log(`Returning with the ${datatype} from ${result}`);
-
 			// auto-cropping the image if it is a picture
 			if (datatype === "picture") {
 				console.log(`Cropping picture found at ${url}...`);
 
 				// getting the filename
 				const fpattern = /co\/\w+\/(.*\.\w{3})$/;
-				const fname = result.match(fpattern)[1] ?? "failed";
+				const fname = result.match(fpattern)[1] ?? "picture";
 				console.log("setting filename", fname);
 
 				// starting Clipper
@@ -107,6 +111,9 @@ async function download(interaction) {
 						});
 				});
 			} else {
+				// logging
+				console.log(`Returning with the ${datatype} from ${result}`);
+
 				// replying to the user with the url
 				return interaction.reply(result);
 			}

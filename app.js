@@ -3,12 +3,13 @@ import { REST, Routes, Client, Events, GatewayIntentBits } from "discord.js";
 import config from "./config.json" assert { type: "json" };
 import Ping from "./commands/ping.js";
 import Download from "./commands/download.js";
+import User from "./commands/user.js";
 
 // Create a new client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 // the list of all bot commands
-client.commands = [Ping, Download];
+client.commands = [Ping, Download, User];
 
 // logging on success
 client.once(Events.ClientReady, c => {
