@@ -1,8 +1,8 @@
-import { SlashCommandBuilder, AttachmentBuilder } from "discord.js";
-import request from "request";
 import { JSDOM } from "jsdom";
-import Clipper from "image-clipper";
+import { SlashCommandBuilder, AttachmentBuilder } from "discord.js";
 import Canvas from "canvas";
+import Clipper from "image-clipper";
+import request from "request";
 import dataUriToBuffer from "data-uri-to-buffer";
 
 // configuring image cropping
@@ -13,18 +13,15 @@ Clipper.configure({
 const helpMsg =
 	"Usage: /download link: https://ifunny.co/(picture|video|gif)/...";
 
-/**
- * a macro to quickly log to the console/file and discord
- */
-function cdlog(message) {	
-	console.log(message);
-	return interaction.reply({ content: message, ephemeral: true });
-}
-
 async function download(interaction) {
+	// quick shorthand to reply to a message
+	const reply = message => {
+		return interaction.reply({ content: message, ephemeral: true });
+	}
+
 	// getting the url to search in
 	/** @type String */
-	const url = interaction.options.getString("link");
+	var url = interaction.options.getString("link");
 
 	// looking for buffer overflow
 	if (url.length > 100) {
@@ -38,13 +35,21 @@ async function download(interaction) {
 	/// url validation
 
 	// testing if the url is from the expected domain
-	const correctURL = /^https:\/\/ifunny\.co\/(picture|video|gif)/;
-	const datatype = url.match(correctURL)[1];
-	if (datatype === undefined || datatype === null) {
+	const correctURL = /^https:\/\/ifunny\.co\/(picture|video|gif|meme)/;
+	const match = url.match(correctURL);
+	if (match === null) {
 		// the link is invalid
-		console.log(`${url} is an invalid link.`);
-		return interaction.reply({ content: helpMsg, ephemeral: true });
+		const msg = `${url} is an invalid link.`;
+		console.log(msg);
+		return reply(msg)
+	} else if (match[1] === "meme") {
+		// datatype unset
+		console.log(`Content at ${url} has been unset, trying to fix.`);
+		url = url.replace("meme", "picture");
 	}
+
+	// getting the datatype from the url
+	var datatype = match[1];
 
 	/// posting to the URL
 
@@ -52,30 +57,62 @@ async function download(interaction) {
 	request(url, { json: true }, (err, res, _) => {
 		if (err) {
 			console.log("An error occurred", err);
-			return interaction.reply(
-				"Something went wrong when making the HTTP request."
-			);
+			return reply("Something went wrong when making the HTTP request.");
 		}
 		if (res) {
+
+			// looking at the status code
+			if (res.statusCode !== 200) {
+				const msg = `Meme at ${url} has been removed.`;
+				console.log(msg);
+				return reply(msg);
+			}
+
 			// transforming the paylod into a DOM
 			const dom = new JSDOM(res.body);
 
 			// making selectors
 			const dataset = {
-				gif: ['head > link[as="image"]', "href"],
 				picture: ["div._3ZEF > img", "src"],
-				video: ["div._3ZEF > div > video", "data-src"]
+				video: ["div._3ZEF > div > video", "data-src"],
+				gif: ['head > link[as="image"]', "href"]
 			};
+				
+			// HTML related elements
+			var el, selector, attribute;
 
-			// getting the selector and attribute
-			const [selector, attribute] = dataset[datatype];
+			// if content is meme, guess the selector
+			if (datatype === "meme") {
+				for (const key of Object.keys(dataset)) {
+					// getting the selector and attribute
+					[selector, attribute] = dataset[key];
 
-			// searching the DOM for a datatype tag
-			const el = dom.window.document.querySelector(selector);
+					// trying to find the element
+					el = dom.window.document.querySelector(selector);
 
-			// validation
+					// if null, loop, else return false from func
+					if (el !== null) {
+						// updating the datatype
+						datatype = key;
+						break;
+					}
+					console.log(`Couldn't find ${key} at ${url}.`);
+				}
+			// content is not meme, therefore we can extract the selector without guessing
+			} else {
+				// getting the selector and attribute
+				[selector, attribute] = dataset[datatype];
+
+				// searching the DOM for a datatype tag
+				el = dom.window.document.querySelector(selector);
+			}
+			
+			// testing if the element is null after looking at all
+			// combinations.
 			if (el === null) {
-				return cdlog(msg);
+				const msg = `Couldn't find ${datatype} at ${url}.`;
+				console.log(msg);
+				return reply(msg);
 			}
 
 			// logging
@@ -90,8 +127,8 @@ async function download(interaction) {
 
 				// getting the filename
 				const fpattern = /co\/\w+\/(.*\.\w{3})$/;
-				const fname = result.match(fpattern)[1] ?? "picture";
-				console.log("setting filename", fname);
+				const fname = result.match(fpattern)[1] ?? `ifunny_${datatype}`;
+				console.log("Setting filename", fname);
 
 				// starting Clipper
 				const image = Clipper(result, function() {
@@ -102,6 +139,7 @@ async function download(interaction) {
 					// cropping and uploading
 					this.crop(0, 0, width, (height - 20))
 						.toDataURL(function(cropped) {
+							// uploading the cropped image
 							interaction.reply({
 								files: [
 									new AttachmentBuilder()
