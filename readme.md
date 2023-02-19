@@ -2,6 +2,8 @@
 
 This is a simple bot that replies with an image or video at a specific iFunny.co link.
 
+>[Add this bot to your server.](https://discord.com/api/oauth2/authorize?client_id=1051024538831437865&permissions=116736&scope=bot%20applications.commands)
+
 ## Why?
 
 Because iFunny.co links don't embed into discord properly, this bot will go to the iFunny.co link, find the `src` tag and reply with the url
