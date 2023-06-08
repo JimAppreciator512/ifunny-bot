@@ -36,6 +36,10 @@ client.on(Events.MessageCreate, async message => {
 
 	// automatically embed a post if there is a valid ifunny link in it
 	if (isValidiFunnyLink(message.content)) {
+		// logging
+		console.log(`Embedding content from ${message.content}`);
+
+		// extracting the post in the message
 		extractPost(message.content,
 			resolve => {
 				message.reply(resolve);
