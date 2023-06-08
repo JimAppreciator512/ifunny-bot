@@ -5,9 +5,15 @@ import Ping from "./commands/ping.js";
 import User from "./commands/user.js";
 import About from "./commands/about.js";
 import Download from "./commands/download.js";
+import { isValidiFunnyLink } from "./commands/utils.js";
+import extractPost from "./commands/extractpost.js";
 
 // Create a new client instance
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [
+	GatewayIntentBits.Guilds,
+	GatewayIntentBits.GuildMessages,
+	GatewayIntentBits.MessageContent
+] });
 
 // the list of all bot commands
 client.commands = [Ping, Download, User, About];
@@ -15,9 +21,33 @@ client.commands = [Ping, Download, User, About];
 // logging on success
 client.once(Events.ClientReady, c => {
 	console.log(`Ready! Logged in as ${c.user.tag}`);
+
+	// setting the activity
+	client.user.setActivity("Use /about for the bot!");
+
+	// for maintenance
+//	client.user.setActivity("Working on shit rn, probably gonna break the bot.");
 });
 
-// command handler, this handles the processing of commands
+// regular message handler
+client.on(Events.MessageCreate, async message => {
+	// don't react to the bot sending messages
+	if (message.author == client.user.id) return;
+
+	// automatically embed a post if there is a valid ifunny link in it
+	if (isValidiFunnyLink(message.content)) {
+		extractPost(message.content,
+			resolve => {
+				message.reply(resolve);
+			},
+			_ => {
+				return;
+			}
+		)
+	}
+});
+
+// slash command handler
 client.on(Events.InteractionCreate, async interaction => {
 	if (!interaction.isChatInputCommand()) return;
 
@@ -98,3 +128,5 @@ const rest = new REST({ version: "10" }).setToken(config.token);
 		console.error(error);
 	}
 })();
+
+

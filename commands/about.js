@@ -35,7 +35,8 @@ async function about(interaction) {
 		.setTitle("Source Code")
 		.setAuthor({ name: "bruhulance.if", iconURL: avatarIcon })
 		.setURL("https://github.com/JimAppreciator512/ifunny-bot")
-		.setDescription("This is a bot which uses webscraping to embed iFunny.co links into discord.")
+//		.setDescription("This is a bot which uses webscraping to embed iFunny.co links into discord.")
+		.setDescription("Mainly uses slash commands (/), will auto-parse iFunny.co links in messages.")
 		.setThumbnail(iFunnyIcon)
 		.setFooter({ text: randomQuote(footerQuotes) });
 	
