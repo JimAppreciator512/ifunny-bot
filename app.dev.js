@@ -64,7 +64,7 @@ client.on(Events.InteractionCreate, async interaction => {
 	// just in case the command that was called is undefined
 	if (command === undefined) {
 		const msg = `You somehow tried to call an undefined command "${interaction.commandName}." Good job!`;
-		console.log(msg);
+		console.log("BBBBBBBBBBBBBBBBBBBBBBBBB" + msg);
 		await interaction.reply({ content: msg, ephemeral: true });
 		return;
 	}
