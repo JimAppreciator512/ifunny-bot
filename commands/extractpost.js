@@ -6,6 +6,9 @@ import { AttachmentBuilder } from "discord.js";
 import { JSDOM } from "jsdom";
 
 /**
+ * this function does the heavy lifting by making an HTTP request to the iFunny link
+ * you need the `resolve` and `err` methods because trying to return out of the `request` block
+ * just doesn't work, also different use cases
  * @param {String} content the content to be parsed
  * @param {function(String)} resolve a way to send a message to discord
  * @param {function(String)} err a way to send an error message to the user
