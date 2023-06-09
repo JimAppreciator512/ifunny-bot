@@ -17,13 +17,17 @@ This bot requires `npm` and `node.js` to run.
 1. Run `npm install` to install all the packages.
 1. After npm finishes, then run either `npm run dev` or `npm start` to start the bot.
 
-You will also need your own bot token along with the bot's client ID which means you will need to create a `config.json` file to store it.
+You will also need your own bot token along with the bot's client ID
+which means you will need to create a `config.json` file to store it.
+Finally, for development purposes, you should create a private (I don't really care if it's public) server to
+test the bot on.
 See example below:
 
 ```json
 {
 	"token": "your token goes here",
 	"clientId": "your application id goes here"
+    "guildId": "the id of your development server goes here"
 }
 ```
 

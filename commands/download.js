@@ -1,7 +1,8 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from "discord.js";
-import extractPost from "./extractpost.js";
+import extractPost from "../utils/extractpost.js";
 
 /**
+ * this function is a nice wrapper around the `extractPost` function
  * @param {ChatInputCommandInteraction} interaction the slash command
  */
 async function download(interaction) {
@@ -10,10 +11,12 @@ async function download(interaction) {
 	await interaction.deferReply();
 
 	/// shorthands to reply to a message
+	// this should only accept a string
 	const ereply = message => {
 		return interaction.editReply({ content: message, ephemeral: true });
 	};
 
+	// can accept either an object payload or a string
 	const reply = message => {
 		if (typeof message === "object") {
 			return interaction.editReply(message)
@@ -25,13 +28,7 @@ async function download(interaction) {
 	/** @type String */
 	const url = interaction.options.getString("link");
 
-	// looking for buffer overflow
-	if (url.length > 100) {
-		console.log("Rejecting url:\n", url);
-		return ereply("Invalid link entered.");
-	}
-
-	/// extracting the post
+	// extracting the post
 	await extractPost(url, reply, ereply);
 }
 

@@ -1,15 +1,15 @@
 {
   "name": "iFunny Bot",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "A discord bot that properly embeds iFunny.co links",
-  "main": "app.js",
+  "main": "app.prod.js",
   "type": "module",
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js"
+    "start": "node app.prod.js",
+    "dev": "nodemon app.dev.js"
   },
   "author": "bruhulance",
-  "license": "MIT",
+  "license": "GPL3",
   "dependencies": {
     "data-uri-to-buffer": "^4.0.0",
     "discord.js": "^14.7.1",
@@ -24,3 +24,4 @@
     "nodemon": "^2.0.20"
   }
 }
+

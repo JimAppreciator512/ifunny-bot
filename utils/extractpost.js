@@ -1,7 +1,7 @@
 import request from "request";
 import sharp from "sharp";
 import { Buffer } from "node:buffer";
-import { extractDatatype, extractiFunnyLink } from "./utils.js";
+import { extractDatatype, extractiFunnyLink } from "../utils/utils.js";
 import { AttachmentBuilder } from "discord.js";
 import { JSDOM } from "jsdom";
 
@@ -11,16 +11,11 @@ import { JSDOM } from "jsdom";
  * @param {function(String)} err a way to send an error message to the user
  */
 async function extractPost(content, resolve, err) {	
+
 	// extracting the url from the string
 	const url = extractiFunnyLink(content);
 	if (url === null) {
 		return err("Invalid url.");
-	}
-	
-	// looking for buffer overflow
-	if (url.length > 100) {
-		console.log("Rejecting url:\n", url);
-		return ereply("Invalid link entered.");
 	}
 
 	// logging

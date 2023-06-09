@@ -5,8 +5,8 @@ import Ping from "./commands/ping.js";
 import User from "./commands/user.js";
 import About from "./commands/about.js";
 import Download from "./commands/download.js";
-import { isValidiFunnyLink } from "./commands/utils.js";
-import extractPost from "./commands/extractpost.js";
+import { isValidiFunnyLink } from "./utils/utils.js";
+import extractPost from "./utils/extractpost.js";
 
 // Create a new client instance
 const client = new Client({ intents: [
@@ -22,15 +22,16 @@ client.commands = [Ping, Download, User, About];
 client.once(Events.ClientReady, c => {
 	console.log(`Ready! Logged in as ${c.user.tag}`);
 
-	// setting the activity
-	client.user.setActivity("Use /about for the bot!");
-
 	// for maintenance
-//	client.user.setActivity("Working on shit rn, probably gonna break the bot.");
+	client.user.setActivity("Down for maintenance!");
+	client.user.setStatus("dnd");
 });
 
 // regular message handler
 client.on(Events.MessageCreate, async message => {
+	// ignoring messages that aren't from the development server
+	if (message.guild.id !== config.guildId) return;
+
 	// don't react to the bot sending messages
 	if (message.author == client.user.id) return;
 
@@ -117,7 +118,7 @@ const rest = new REST({ version: "10" }).setToken(config.token);
 
 		// The put method is used to fully refresh all commands in the guild with the current set
 		const data = await rest.put(
-			Routes.applicationCommands(config.clientId),
+			Routes.applicationGuildCommands(config.clientId, config.guildId),
 			{ body: payload }
 		);
 
