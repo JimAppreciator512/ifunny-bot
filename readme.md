@@ -27,7 +27,7 @@ See example below:
 {
 	"token": "your token goes here",
 	"clientId": "your application id goes here"
-    "guildId": "the id of your development server goes here"
+	"guildId": "the id of your development server goes here"
 }
 ```
 
