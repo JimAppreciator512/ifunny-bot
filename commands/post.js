@@ -5,7 +5,7 @@ import extractPost from "../utils/extractpost.js";
  * this function is a nice wrapper around the `extractPost` function
  * @param {ChatInputCommandInteraction} interaction the slash command
  */
-async function download(interaction) {
+async function post(interaction) {
 
 	// deferring the reply later
 	await interaction.deferReply();
@@ -32,18 +32,18 @@ async function download(interaction) {
 	await extractPost(url, reply, ereply);
 }
 
-const Download = {
+const Post = {
 	data: new SlashCommandBuilder()
-		.setName("download")
-		.setDescription("Downloads a video/image from iFunny.")
+		.setName("post")
+		.setDescription("Posts a video/image from iFunny.")
 		.addStringOption(option => {
 			return option
 				.setName("link")
 				.setDescription("An iFunny.co link e.g., ifunny.co/video/...")
 				.setRequired(true);
 		}),
-	execute: download,
+	execute: post,
 };
 
-export default Download;
+export default Post;
 

@@ -3,9 +3,15 @@ import { REST, Routes, Client, GatewayIntentBits } from "discord.js";
 import config from "./config.json" assert { type: "json" };
 import User from "./commands/user.js";
 import About from "./commands/about.js";
-import Download from "./commands/download.js";
+import Post from "./commands/help.js";
+import Help from "./commands/post.js";
 import { isValidiFunnyLink } from "./utils/utils.js";
 import extractPost from "./utils/extractpost.js";
+
+// creating a list of valid commands used by the bot
+const Commands = [
+	Post, User, About, Help
+];
 
 // Create a new client instance
 const client = new Client({ intents: [
@@ -15,7 +21,7 @@ const client = new Client({ intents: [
 ] });
 
 // the list of all bot commands
-client.commands = [Download, User, About];
+client.commands = Commands;
 
 // establishing a rest connection to discord
 const rest = new REST({ version: "10" }).setToken(config.token);
@@ -164,5 +170,5 @@ const prod = {
 	}
 }
 
-export { client, dev, prod };
+export { client as Client, dev, prod, Commands };
 
