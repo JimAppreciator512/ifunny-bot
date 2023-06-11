@@ -76,8 +76,9 @@ const dev = {
 		try {
 			// logging
 			console.log(
-				`The command ${interaction.commandName} was executed by ${interaction.member.user.username}.`
-			);
+				`The command ${interaction.commandName} was executed by ${interaction.member.user.username}. ` +
+				`With args:`);
+			interaction.options.data.map(U => { console.log(U); });
 
 			// executing the command
 			await command.execute(interaction);
