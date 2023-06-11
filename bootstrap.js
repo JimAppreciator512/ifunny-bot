@@ -26,6 +26,20 @@ client.commands = Commands;
 // establishing a rest connection to discord
 const rest = new REST({ version: "10" }).setToken(config.token);
 
+/**
+ * @callback _MessageCreate
+ * @param {import ("discord.js").Message} message the message sent
+ * @returns {Promise<void>}
+ * 
+ * @callback _InteractionCreate
+ * @param {import ("discord.js").Interaction} interaction the interaction
+ * @returns {Promise<void>}
+ */
+
+/**
+ * @namespace Bootstrap
+ */
+
 const dev = {
 	ClientReady: c => {
 		console.log(`Ready! Logged in as ${c.user.tag}`);
@@ -34,6 +48,11 @@ const dev = {
 		client.user.setActivity("Down for maintenance!");
 		client.user.setStatus("dnd");
 	},
+	/**
+ 	 * @memberof Bootstrap
+	 * @method MessageCreate The handler for Events.MessageCreate
+	 * @type {_MessageCreate}
+ 	 */
 	MessageCreate: async message => {
 		// ignoring messages that aren't from the development server
 		if (message.guild.id !== config.guildId) return;
@@ -57,6 +76,11 @@ const dev = {
 			)
 		}
 	},
+	/**
+ 	 * @memberof Bootstrap
+	 * @method InteractionCreate The handler for Events.InteractionCreate
+	 * @type {_InteractionCreate}
+ 	 */
 	InteractionCreate: async interaction => {
 		if (!interaction.isChatInputCommand()) return;
 
@@ -106,6 +130,11 @@ const prod = {
 		// setting the activity
 		client.user.setActivity("Use /about for the bot!");
 	},
+	/**
+ 	 * @memberof Bootstrap
+	 * @method MessageCreate The handler for Events.MessageCreate
+	 * @type {_MessageCreate}
+ 	 */
 	MessageCreate: async message => {
 		// don't react to the bot sending messages
 		if (message.author == client.user.id) return;
@@ -126,6 +155,11 @@ const prod = {
 			)
 		}
 	},
+	/**
+ 	 * @memberof Bootstrap
+	 * @method InteractionCreate The handler for Events.InteractionCreate
+	 * @type {_InteractionCreate}
+ 	 */
 	InteractionCreate: async interaction => {
 		if (!interaction.isChatInputCommand()) return;
 
