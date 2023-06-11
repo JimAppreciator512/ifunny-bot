@@ -19,7 +19,7 @@ async function about(interaction) {
 const About = {
 	data: new SlashCommandBuilder()
 		.setName("about")
-		.setDescription("Replies with a description of the bot."),
+		.setDescription("Replies with a description of the bot and a link to the source code."),
 	execute: about
 };
 

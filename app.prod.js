@@ -1,21 +1,21 @@
 import { Events } from "discord.js";
 import config from "./config.json" assert { type: "json" };
-import { client, prod } from "./bootstrap.js";
+import { Client, prod } from "./bootstrap.js";
 
 // logging on success
-client.once(Events.ClientReady, prod.ClientReady);
+Client.once(Events.ClientReady, prod.ClientReady);
 
 // regular message handler
-client.on(Events.MessageCreate, prod.MessageCreate);
+Client.on(Events.MessageCreate, prod.MessageCreate);
 
 // slash command handler
-client.on(Events.InteractionCreate, prod.InteractionCreate);
+Client.on(Events.InteractionCreate, prod.InteractionCreate);
 
 // deploying the commands to discord
 (async () => {
 	try {
 		// mapping the commands to return their "data" prop
-		const payload = client.commands.map(command => {
+		const payload = Client.commands.map(command => {
 			return command.data;
 		});
 
@@ -41,7 +41,7 @@ client.on(Events.InteractionCreate, prod.InteractionCreate);
 		);
 
 		// logging into discord
-		client.login(config.token);
+		Client.login(config.token);
 	} catch (error) {
 		// logging any errors
 		console.error(error);

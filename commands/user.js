@@ -79,7 +79,7 @@ async function user(interaction) {
 const User = {
 	data: new SlashCommandBuilder()
 		.setName("user")
-		.setDescription("Embeds the link to a user's profile")
+		.setDescription("Embeds the link to a user's profile.")
 		.addStringOption(option => {
 			return option
 				.setName("name")
