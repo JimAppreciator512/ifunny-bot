@@ -4,6 +4,8 @@ import { Buffer } from "node:buffer";
 import { extractDatatype, extractiFunnyLink } from "../utils/utils.js";
 import { AttachmentBuilder } from "discord.js";
 import { JSDOM } from "jsdom";
+import { defaultPayload } from "./payload.js";
+import { EmbedBuilder } from "@discordjs/builders";
 
 /**
  * @param {String} content the content to be parsed
@@ -40,7 +42,7 @@ async function extractPost(content, resolve, err) {
 				}
 
 				// transforming the paylod into a DOM
-				const dom = new JSDOM(res.body);
+				const dom = new JSDOM(res.body).window.document;
 
 				// making selectors
 				const dataset = {
@@ -48,6 +50,21 @@ async function extractPost(content, resolve, err) {
 					video: ["div._3ZEF > div > video", "data-src"],
 					gif: ['head > link[as="image"]', "href"],
 				};
+
+				/// getting post statistics
+				const payload = defaultPayload();
+
+				payload.username = dom.querySelector("div._9JPE > a.WiQc > span.IfB6").textContent.replace(" ", "");
+				payload.iconUrl = dom.querySelector("div._9JPE > a.WiQc > img.dLxH").getAttribute("data-src");
+				payload.likes = dom.querySelectorAll("div._9JPE > button.Cgfc > span.Y2eM > span")[0].textContent;
+				payload.comments = dom.querySelectorAll("div._9JPE > button.Cgfc > span.Y2eM > span")[1].textContent;
+
+				console.log(payload);
+				const embed = new EmbedBuilder()
+					.setDescription(`${payload.likes} likes.\t${payload.comments} comments.`)
+					.setTitle(`Post by ${payload.username}`)
+					.setURL(url)
+					.setThumbnail(payload.iconUrl);
 
 				// HTML related elements
 				var el, selector, attribute;
@@ -59,7 +76,7 @@ async function extractPost(content, resolve, err) {
 						[selector, attribute] = dataset[key];
 
 						// trying to find the element
-						el = dom.window.document.querySelector(selector);
+						el = dom.querySelector(selector);
 
 						// if null, loop, else return false from func
 						if (el !== null) {
@@ -76,7 +93,7 @@ async function extractPost(content, resolve, err) {
 					[selector, attribute] = dataset[datatype];
 
 					// searching the DOM for a datatype tag
-					el = dom.window.document.querySelector(selector);
+					el = dom.querySelector(selector);
 				}
 
 				// testing if the element is null after looking at all
@@ -92,16 +109,15 @@ async function extractPost(content, resolve, err) {
 
 				// need to grab a conditional attribute based on the content type
 				const result = el.getAttribute(attribute).replaceAll("jpg", "webp");
+				
+				// getting the filename
+				const fpattern = /co\/\w+\/(.*\.\w{3,4})$/;
+				const fname = (result.match(fpattern)[1] ?? `ifunny_${datatype}`).replaceAll("webp", "png");
+				console.log("Setting filename", fname);
 
 				// auto-cropping the image if it is a picture
 				if (datatype === "picture") {
 					console.log(`Cropping picture found at ${url}...`);
-
-					// getting the filename
-					const fpattern = /co\/\w+\/(.*\.\w{4})$/;
-					const fname =
-						(result.match(fpattern)[1] ?? `ifunny_${datatype}.webp`).replaceAll("webp", "png");
-					console.log("Setting filename", fname);
 
 					// requesting the image from the source
 					request({ uri: result, encoding: null }, (err, res, body) => {
@@ -137,7 +153,8 @@ async function extractPost(content, resolve, err) {
 										new AttachmentBuilder()
 											.setName(fname)
 											.setFile(data)
-									]
+									],
+									embeds: [embed]
 								});
 							})
 							.catch(err => {
@@ -153,7 +170,11 @@ async function extractPost(content, resolve, err) {
 					);
 
 					// replying to the user with the url
-					resolve(result);
+					resolve({ files: [
+						new AttachmentBuilder()
+							.setName(fname)
+							.setFile(result)
+					], embeds: [embed] });
 				}
 			}
 		});
