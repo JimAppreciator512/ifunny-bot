@@ -1,4 +1,3 @@
-
 /**
  * @typedef Payload
  * @prop {String} username
@@ -12,13 +11,12 @@
  * @returns {Payload}
  */
 const defaultPayload = () => {
-	return {
-		username: "",
-		iconUrl: "",
-		likes: 0,
-		comments: 0
-	};
-}
+    return {
+        username: "",
+        iconUrl: "",
+        likes: 0,
+        comments: 0,
+    };
+};
 
 export { defaultPayload };
-

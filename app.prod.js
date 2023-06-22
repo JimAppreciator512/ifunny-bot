@@ -13,38 +13,37 @@ Client.on(Events.InteractionCreate, prod.InteractionCreate);
 
 // deploying the commands to discord
 (async () => {
-	try {
-		// mapping the commands to return their "data" prop
-		const payload = Client.commands.map(command => {
-			return command.data;
-		});
+    try {
+        // mapping the commands to return their "data" prop
+        const payload = Client.commands.map(command => {
+            return command.data;
+        });
 
-		// logging what commands are sent to the discord API
-		console.log(
-			"Loading commands:",
-			payload
-				.map(command => {
-					return command.name;
-				})
-				.join(", ")
-		);
+        // logging what commands are sent to the discord API
+        console.log(
+            "Loading commands:",
+            payload
+                .map(command => {
+                    return command.name;
+                })
+                .join(", ")
+        );
 
-		console.log(
-			`Started refreshing ${payload.length} application (/) commands.`
-		);
+        console.log(
+            `Started refreshing ${payload.length} application (/) commands.`
+        );
 
-		// The put method is used to fully refresh all commands in the guild with the current set
-		const data = await prod.Put(payload);
+        // The put method is used to fully refresh all commands in the guild with the current set
+        const data = await prod.Put(payload);
 
-		console.log(
-			`Successfully reloaded ${data.length} application (/) commands.`
-		);
+        console.log(
+            `Successfully reloaded ${data.length} application (/) commands.`
+        );
 
-		// logging into discord
-		Client.login(config.token);
-	} catch (error) {
-		// logging any errors
-		console.error(error);
-	}
+        // logging into discord
+        Client.login(config.token);
+    } catch (error) {
+        // logging any errors
+        console.error(error);
+    }
 })();
-
