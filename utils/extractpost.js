@@ -84,13 +84,20 @@ async function extractPost(content, resolve, err) {
                 var el, selector, attribute;
 
                 // if content is meme, guess the selector
-                if (datatype === "meme") {
+                if (datatype !== "meme") {
+                    // getting the selector and attribute
+                    [selector, attribute] = dataset[datatype];
+
+                    // searching the DOM for a datatype tag
+                    el = dom.querySelector(selector);
+                } else {
+					// we need to guess the selector that has the content url
                     for (const key of Object.keys(dataset)) {
                         // getting the selector and attribute
                         [selector, attribute] = dataset[key];
 
                         // trying to find the element
-                        el = dom.window.document.querySelector(selector);
+                        el = dom.querySelector(selector);
 
                         // if null, loop, else return false from func
                         if (el !== null) {
@@ -100,14 +107,6 @@ async function extractPost(content, resolve, err) {
                         }
                         console.log(`Couldn't find ${key} at ${url}.`);
                     }
-                } else {
-                    // content is not meme, therefore we can extract the selector without guessing
-
-                    // getting the selector and attribute
-                    [selector, attribute] = dataset[datatype];
-
-                    // searching the DOM for a datatype tag
-                    el = dom.window.document.querySelector(selector);
                 }
 
                 // testing if the element is null after looking at all
@@ -129,7 +128,7 @@ async function extractPost(content, resolve, err) {
                 const fname = contentUrl.match(fpattern)[1] ?? `ifunny_${datatype}`;
 
                 // logging
-                console.log(`Naming the image from ${contentUrl} as ${fname}`);
+                console.log(`Naming the ${datatype} at ${contentUrl} as ${fname}`);
 
                 // auto-cropping the image if it is a picture
                 if (datatype !== "picture") {
