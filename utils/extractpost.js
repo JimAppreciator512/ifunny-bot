@@ -91,7 +91,7 @@ async function extractPost(content, resolve, err) {
                     // searching the DOM for a datatype tag
                     el = dom.querySelector(selector);
                 } else {
-					// we need to guess the selector that has the content url
+                    // we need to guess the selector that has the content url
                     for (const key of Object.keys(dataset)) {
                         // getting the selector and attribute
                         [selector, attribute] = dataset[key];
@@ -120,15 +120,18 @@ async function extractPost(content, resolve, err) {
                 // logging
                 console.log(`Found a ${datatype} at ${url}`);
 
-				// geting the url where the content is stored
+                // geting the url where the content is stored
                 const contentUrl = el.getAttribute(attribute);
 
                 // getting the filename
                 const fpattern = /co\/\w+\/(.*\..{3,4})$/;
-                const fname = contentUrl.match(fpattern)[1] ?? `ifunny_${datatype}`;
+                const fname =
+                    contentUrl.match(fpattern)[1] ?? `ifunny_${datatype}`;
 
                 // logging
-                console.log(`Naming the ${datatype} at ${contentUrl} as ${fname}`);
+                console.log(
+                    `Naming the ${datatype} at ${contentUrl} as ${fname}`
+                );
 
                 // auto-cropping the image if it is a picture
                 if (datatype !== "picture") {
