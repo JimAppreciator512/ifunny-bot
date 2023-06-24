@@ -4,22 +4,18 @@ import request from "request";
 import { iFunnyIcon } from "../utils/misc.js";
 
 async function user(interaction) {
+    // deferring the reply
+    await interaction.deferReply();
+
     // getting the user to search for
     /** @type String */
-    const input = interaction.options.getString("name");
-
-    // does javascript even have buffer overflows?
-    if (input.length > 100) {
-        return interaction.reply(
-            "That username is too long for me to understand."
-        );
-    }
+    const username = interaction.options.getString("name");
 
     // logging
-    console.log(`Looking user "${input}"...`);
+    console.log(`Looking user "${username}"...`);
 
     // forming the URL of the potential user
-    const url = `https://ifunny.co/user/${input}`;
+    const url = `https://ifunny.co/user/${username}`;
 
     /// posting to the URL
 
@@ -27,10 +23,17 @@ async function user(interaction) {
     request(url, { json: true }, (err, res, _) => {
         if (err) {
             console.log("An error occurred:", err);
-            return interaction.reply("An error talking to iFunny servers.");
+            return interaction.editReply("An error talking to iFunny servers.");
         }
         if (res) {
-            if (res.statusCode === 200) {
+            if (res.statusCode !== 200) {
+                const msg = `User ${username} could not be found.`;
+                console.log(msg);
+                return interaction.editReply(msg);
+            } else {
+                // logging
+                console.log(`Found user ${username}.`);
+
                 // turning the payload into something parse-able
                 const dom = new JSDOM(res.body).window.document;
 
@@ -45,6 +48,7 @@ async function user(interaction) {
                 } else {
                     // no avatar if here
                     icon = iFunnyIcon;
+                    console.log(`User ${username} has no icon.`);
                 }
 
                 // getting the description
@@ -69,18 +73,14 @@ async function user(interaction) {
                 // creating a nice embed
                 const embed = new EmbedBuilder()
                     .setColor(0x0099ff)
-                    .setTitle(input)
+                    .setTitle(username)
                     .setURL(url)
                     .setThumbnail(icon)
                     .setDescription(description)
                     .setFooter({ text: footer });
 
-                // return the result of interaction.reply
-                return interaction.reply({ embeds: [embed] });
-            } else {
-                const msg = `User ${input} could not be found.`;
-                console.log(msg);
-                return interaction.reply(msg);
+                // editing the response
+                return interaction.editReply({ embeds: [embed] });
             }
         }
     });
@@ -89,7 +89,9 @@ async function user(interaction) {
 const User = {
     data: new SlashCommandBuilder()
         .setName("user")
-        .setDescription("Embeds the link to a user's profile.")
+        .setDescription(
+            "Embeds the link to a user's profile. (case insensitive)"
+        )
         .addStringOption(option => {
             return option
                 .setName("name")
