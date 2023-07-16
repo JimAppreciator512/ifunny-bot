@@ -3,8 +3,9 @@ import { randomQuote } from "../utils/misc.js";
 import Post from "./post.js";
 import User from "./user.js";
 import About from "./about.js";
+import Hash from "./hashfiles.js";
 
-const commands = [Post, User, About];
+const commands = [Post, User, About, Hash];
 
 const fields = [
     ...commands.map(cmd => {
