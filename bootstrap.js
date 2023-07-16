@@ -7,9 +7,10 @@ import Post from "./commands/help.js";
 import Help from "./commands/post.js";
 import { isValidiFunnyLink } from "./utils/utils.js";
 import extractPost from "./utils/extractpost.js";
+import Hash from "./commands/hashfiles.js";
 
 // creating a list of valid commands used by the bot
-const Commands = [Post, User, About, Help];
+const Commands = [Post, User, About, Help, Hash];
 
 // Create a new client instance
 const client = new Client({
