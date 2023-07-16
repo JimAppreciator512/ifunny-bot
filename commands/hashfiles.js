@@ -1,6 +1,6 @@
 import path from "node:path/posix";
 import fs from "node:fs";
-import { exec, execSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { SlashCommandBuilder } from "discord.js";
 
