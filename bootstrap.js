@@ -3,18 +3,20 @@ import { REST, Routes, Client, GatewayIntentBits } from "discord.js";
 import config from "./config.json" assert { type: "json" };
 import User from "./commands/user.js";
 import About from "./commands/about.js";
-import Post from "./commands/help.js";
-import Help from "./commands/post.js";
+import Post from "./commands/post.js";
+import Help from "./commands/help.js";
+import Config from "./commands/config.js";
+import Hash from "./commands/hashfiles.js";
 import { isValidiFunnyLink } from "./utils/utils.js";
 import extractPost from "./utils/extractpost.js";
-import Hash from "./commands/hashfiles.js";
 import { PrismaClient } from "@prisma/client";
+import { pullServerConfig } from "./utils/db.js";
 
 // establishing a connection to the database
 const prisma = new PrismaClient();
 
 // creating a list of valid commands used by the bot
-const Commands = [Post, User, About, Help, Hash];
+const Commands = [Post, User, About, Help, Hash, Config];
 
 // Create a new client instance
 const client = new Client({
@@ -66,38 +68,15 @@ const dev = {
         if (message.author == client.user.id) return;
 
         // querying the prisma db to see if this server has "globalEmbed" enabled
-        const serverConfig = await prisma.config.findFirst({
-            where: {
-                server: message.guild.id
-            }
-        });
+        const serverConfig = await pullServerConfig(message.guild.id);
 
-        // if the current server isn't present in the database
-        if (serverConfig == null) {
-            // logging
-            console.log(`Server ${message.guild.id} isn't in the database, adding`);
-
-            // adding the server to the database
-            const result = await prisma.config.create({
-                data: {
-                    server: message.guild.id,
-                    globalEmbed: true
-                }
-            });
-
-            // if valid insertion
-            if (result && result.count == 1) {
-                console.log(`Successfully added server ${message.guild.id} to the "Config" table.`);
-            } else {
-                console.error(`Couldn't add server ${message.guild.id} to the "Config" table.`);
-                console.error(result);
-            }
-        } else {
-            if (!serverConfig.globalEmbed) {
-                // global embed is disabled, aborting
-                console.log(`Server ${message.guild.id} has global embed disabled, aborting.`);
-                return;
-            }
+        // if global config is disabled, stop function
+        if (!serverConfig.globalEmbed) {
+            // global embed is disabled, aborting
+            console.log(
+                `Server ${message.guild.id} has global embed disabled, aborting.`
+            );
+            return;
         }
 
         // automatically embed a post if there is a valid ifunny link in it
@@ -112,7 +91,9 @@ const dev = {
                     message.reply(resolve);
                 },
                 error => {
-                    console.log(`There was an error during auto embed: ${error}`);
+                    console.log(
+                        `There was an error during auto embed: ${error}`
+                    );
                     return;
                 }
             );

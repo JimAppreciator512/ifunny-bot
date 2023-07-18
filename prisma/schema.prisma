@@ -16,5 +16,6 @@ model Channel {
 model Config {
   server      String   @id
   globalEmbed Boolean  @default(true)
+  role        String   @default("")
   Channel     Channel?
 }

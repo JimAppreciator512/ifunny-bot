@@ -1,6 +1,7 @@
 create table if not exists "Config" (
     server varchar(18) primary key not null,
-    globalEmbed boolean not null default true
+    globalEmbed boolean not null default true,
+    role varchar(19) not null default ""
 );
 
 create table if not exists "Channel" (
