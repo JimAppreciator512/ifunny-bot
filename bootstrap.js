@@ -8,6 +8,10 @@ import Help from "./commands/post.js";
 import { isValidiFunnyLink } from "./utils/utils.js";
 import extractPost from "./utils/extractpost.js";
 import Hash from "./commands/hashfiles.js";
+import { PrismaClient } from "@prisma/client";
+
+// establishing a connection to the database
+const prisma = new PrismaClient();
 
 // creating a list of valid commands used by the bot
 const Commands = [Post, User, About, Help, Hash];
@@ -61,10 +65,45 @@ const dev = {
         // don't react to the bot sending messages
         if (message.author == client.user.id) return;
 
+        // querying the prisma db to see if this server has "globalEmbed" enabled
+        const serverConfig = await prisma.config.findFirst({
+            where: {
+                server: message.guild.id
+            }
+        });
+
+        // if the current server isn't present in the database
+        if (serverConfig == null) {
+            // logging
+            console.log(`Server ${message.guild.id} isn't in the database, adding`);
+
+            // adding the server to the database
+            const result = await prisma.config.create({
+                data: {
+                    server: message.guild.id,
+                    globalEmbed: true
+                }
+            });
+
+            // if valid insertion
+            if (result && result.count == 1) {
+                console.log(`Successfully added server ${message.guild.id} to the "Config" table.`);
+            } else {
+                console.error(`Couldn't add server ${message.guild.id} to the "Config" table.`);
+                console.error(result);
+            }
+        } else {
+            if (!serverConfig.globalEmbed) {
+                // global embed is disabled, aborting
+                console.log(`Server ${message.guild.id} has global embed disabled, aborting.`);
+                return;
+            }
+        }
+
         // automatically embed a post if there is a valid ifunny link in it
         if (isValidiFunnyLink(message.content)) {
             // logging
-            console.log(`Embedding content from ${message.content}`);
+            console.log(`Auto-embedding content from ${message.content}`);
 
             // extracting the post in the message
             extractPost(
@@ -72,7 +111,8 @@ const dev = {
                 resolve => {
                     message.reply(resolve);
                 },
-                _ => {
+                error => {
+                    console.log(`There was an error during auto embed: ${error}`);
                     return;
                 }
             );

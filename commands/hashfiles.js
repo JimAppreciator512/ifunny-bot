@@ -4,7 +4,7 @@ import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { SlashCommandBuilder } from "discord.js";
 
-const restricted = ["config.json", ".git", "node_modules"];
+const restricted = ["config.json", ".git", "node_modules", ".env"];
 
 async function hash(interaction) {
     // deferring the reply
