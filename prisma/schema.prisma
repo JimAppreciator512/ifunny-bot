@@ -8,14 +8,14 @@ datasource db {
 }
 
 model Channel {
-  server  String @id
-  channel String @unique(map: "sqlite_autoindex_Channel_2")
+  channel String @id
+  server  String
   Config  Config @relation(fields: [server], references: [server], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model Config {
-  server      String   @id
-  globalEmbed Boolean  @default(true)
-  role        String   @default("")
-  Channel     Channel?
+  server      String    @id
+  globalEmbed Boolean   @default(true)
+  role        String    @default("")
+  Channel     Channel[]
 }

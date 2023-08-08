@@ -1,0 +1,4 @@
+#!/bin/bash
+rm main.db
+/bin/bash ./setup_db
+

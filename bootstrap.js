@@ -9,11 +9,7 @@ import Config from "./commands/config.js";
 import Hash from "./commands/hashfiles.js";
 import { isValidiFunnyLink } from "./utils/utils.js";
 import extractPost from "./utils/extractpost.js";
-import { PrismaClient } from "@prisma/client";
-import { pullServerConfig } from "./utils/db.js";
-
-// establishing a connection to the database
-const prisma = new PrismaClient();
+import { pullServerConfig, pullChannels } from "./utils/db.js";
 
 // creating a list of valid commands used by the bot
 const Commands = [Post, User, About, Help, Hash, Config];
@@ -71,12 +67,43 @@ const dev = {
         const serverConfig = await pullServerConfig(message.guild.id);
 
         // if global config is disabled, stop function
-        if (!serverConfig.globalEmbed) {
+        if (serverConfig.globalEmbed === false) {
             // global embed is disabled, aborting
             console.log(
-                `Server ${message.guild.id} has global embed disabled, aborting.`
+                `Server ${message.guild.id} has global embed disabled, checking for a saved channel.`
             );
-            return;
+
+            // if the interaction was in a saved channel, allow
+            const channels = await pullChannels(message.guild.id);
+
+            // there are no saved channels
+            if (channels.length === 0) {
+                console.log(
+                    `There are no saved channels for ${message.guild.id}, aborting auto-embed.`
+                );
+                return;
+            }
+
+            // there are one or more saved channels
+            console.log(
+                `${message.guild.id} has one or more saved channels, checking if the interaction's channel is valid.`
+            );
+
+            if (
+                channels.filter(obj => {
+                    return obj.channel === message.channel.id;
+                }).length === 0
+            ) {
+                console.log(
+                    `The message was sent in a channel that doesn't have auto-embed enabled, aborting.`
+                );
+                return;
+            }
+
+            // logging
+            console.log(
+                `Allowing auto-embed in channel ${message.channel.id}.`
+            );
         }
 
         // automatically embed a post if there is a valid ifunny link in it

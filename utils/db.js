@@ -3,6 +3,18 @@ import { PrismaClient } from "@prisma/client";
 // the connection to the database
 const prisma = new PrismaClient();
 
+async function pullChannels(id) {
+    // logging
+    console.log(`Fetching all channels from ${id}.`);
+
+    // pulling all the channels from the channels table
+    return await prisma.channel.findMany({
+        where: {
+            server: id
+        }
+    });
+}
+
 /**
  * this function inserts a server of `id` into the database
  * @param {String} id the id of the server
@@ -70,9 +82,13 @@ async function pullServerConfig(id) {
             console.error(`Couldn't add server ${id} to the "Config" table.`);
             console.error(result);
         }
+
+        // returning with the new config
+        return await pullServerConfigNoInsert(id, false);
     }
 
-    return await pullServerConfigNoInsert(id);
+    // don't need to pull the configuration twice if there's already config available
+    return config;
 }
 
-export { prisma, insertServerToDB, pullServerConfig, pullServerConfigNoInsert };
+export { prisma, insertServerToDB, pullServerConfig, pullServerConfigNoInsert, pullChannels };
