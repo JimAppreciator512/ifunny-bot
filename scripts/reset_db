@@ -1,4 +1,4 @@
 #!/bin/bash
-rm main.db
-/bin/bash ./setup_db
+rm ../main.db
+/bin/bash ./scripts/setup_db
 

@@ -16,6 +16,15 @@ async function configAutoEmbed(interaction) {
     // getting the current value of autoEmbed
     const config = await pullServerConfigNoInsert(interaction.guild.id);
 
+    // breaking if config is null
+    if (config === null) {
+        console.log(`Error retrieving information about ${interaction.guild.id}.`);
+        return await interaction.reply({
+            content: "There was an error retrieving information about your server.",
+            ephemeral: true
+        });
+    }
+
     // user wants to display the current setting
     if (data === null) {
         // responding to caller
@@ -67,6 +76,14 @@ async function configRole(interaction) {
     // getting the current value of autoEmbed
     const config = await pullServerConfigNoInsert(interaction.guild.id);
 
+    // breaking if config is null
+    if (config === null) {
+        return await interaction.reply({
+            content: "There was an error retrieving information about your server.",
+            ephemeral: true
+        });
+    }
+
     // user wants to display the current setting
     if (data === null) {
         // logging
@@ -98,12 +115,13 @@ async function configRole(interaction) {
     );
 
     // mapping the id to the actual name to make more sense
-    const roleName = interaction.guild.roles.resolve(data.id).name;
+    const oldRoleName = interaction.guild.roles.resolve(config.role).name;
+    const newRoleName = interaction.guild.roles.resolve(data.id).name;
 
-    // user wants to set the configuration
-    if (config.role === data) {
+    // not applying unneeded changes
+    if (config.role === data.id) {
         return await interaction.reply({
-            content: `Set "role" to ${roleName}`,
+            content: `Changed ${oldRoleName} to ${newRoleName}`,
             ephemeral: true,
         });
     }
@@ -121,12 +139,12 @@ async function configRole(interaction) {
     // evaluating the response
     if (result && result.role === data.id) {
         return await interaction.reply({
-            content: `Set "role" to ${roleName}`,
+            content: `Changed ${oldRoleName} to ${newRoleName}`,
             ephemeral: true,
         });
     } else {
         return await interaction.reply({
-            content: `There was an error updating "role" to ${roleName}.`,
+            content: `There was an error updating ${oldRoleName} to ${newRoleName}.`,
             ephemeral: true,
         });
     }

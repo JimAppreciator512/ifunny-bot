@@ -1,17 +1,31 @@
 import { PrismaClient } from "@prisma/client";
+import Crypto from "node:crypto";
 
 // the connection to the database
 const prisma = new PrismaClient();
 
+// returns the sha1 digest of some input
+const sha1sum = input => {
+    return Crypto.createHash("sha1").update(input).digest("hex");
+};
+
+/**
+ * this function pulls all of the channel ids that are associated with the server
+ * @param {String} id the id of the server
+ * @returns a list of channels
+ */
 async function pullChannels(id) {
+    // hashing
+    const hash = sha1sum(id);
+
     // logging
-    console.log(`Fetching all channels from ${id}.`);
+    console.log(`Fetching all channels from ${hash}.`);
 
     // pulling all the channels from the channels table
     return await prisma.channel.findMany({
         where: {
-            server: id
-        }
+            server: hash,
+        },
     });
 }
 
@@ -21,13 +35,16 @@ async function pullChannels(id) {
  * @returns the result of the insert
  */
 async function insertServerToDB(id) {
+    // hashing
+    const hash = sha1sum(id);
+
     // logging
-    console.log(`Inserting the server ${id} into the database.`);
+    console.log(`Inserting the server ${hash} into the database.`);
 
     // adding the server to the database
     return await prisma.config.create({
         data: {
-            server: id,
+            server: hash,
             globalEmbed: true,
             role: "",
         },
@@ -40,17 +57,14 @@ async function insertServerToDB(id) {
  * @param {Boolean} verbose if true, print logging message
  * @returns the configuration of the server
  */
-async function pullServerConfigNoInsert(id, verbose = true) {
-    // logging
-    if (verbose)
-        console.log(
-            `Pulling the configuration of server ${id} from the database.`
-        );
+async function pullServerConfigNoInsert(id) {
+    // hashing
+    const hash = sha1sum(id);
 
     // pulling the server config without inserting the server into the database
     return await prisma.config.findFirst({
         where: {
-            server: id,
+            server: hash,
         },
     });
 }
@@ -62,33 +76,44 @@ async function pullServerConfigNoInsert(id, verbose = true) {
  * @returns the configuration of the server
  */
 async function pullServerConfig(id) {
+    // hashing
+    const server_hash = sha1sum(id);
+
     // pulling the server config and inserting the server if not exists
-    const config = await pullServerConfigNoInsert(id, false);
+    const config = await pullServerConfigNoInsert(id);
 
     // inserting server into DB if not exists
     if (config == null) {
         // logging
-        console.log(`Configuration for server ${id} doesn't exist, creating.`);
+        console.log(
+            `Configuration for server ${server_hash} doesn't exist, creating.`
+        );
 
         // inserting the server into the database
         const result = await insertServerToDB(id);
 
         // if valid insertion
-        if (result && result.count == 1) {
+        if (result && result.server === undefined) {
             console.log(
-                `Successfully added server ${id} to the "Config" table.`
+                `Successfully added server ${server_hash} to the "Config" table.`
             );
         } else {
-            console.error(`Couldn't add server ${id} to the "Config" table.`);
-            console.error(result);
+            console.error(`Couldn't add server ${server_hash} to the "Config" table.`);
+            console.error("Reason:", result);
         }
 
         // returning with the new config
-        return await pullServerConfigNoInsert(id, false);
+        return await pullServerConfigNoInsert(id);
     }
 
     // don't need to pull the configuration twice if there's already config available
     return config;
 }
 
-export { prisma, insertServerToDB, pullServerConfig, pullServerConfigNoInsert, pullChannels };
+export {
+    prisma,
+    insertServerToDB,
+    pullServerConfig,
+    pullServerConfigNoInsert,
+    pullChannels,
+};
