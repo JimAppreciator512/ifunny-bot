@@ -1,3 +1,0 @@
-#!/bin/sh
-cat prisma/init_db.sql | sqlite3 main.db
-

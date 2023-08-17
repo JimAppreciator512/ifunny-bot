@@ -1,4 +1,0 @@
-#!/bin/bash
-npx prisma db pull
-npx prisma generate
-
