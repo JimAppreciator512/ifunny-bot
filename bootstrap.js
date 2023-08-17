@@ -72,8 +72,8 @@ const dev = {
                 resolve => {
                     message.reply(resolve);
                 },
-                _ => {
-                    return;
+                err => {
+                    message.reply({ content: err, ephemeral: true });
                 }
             );
         }
@@ -155,8 +155,8 @@ const prod = {
                 resolve => {
                     message.reply(resolve);
                 },
-                _ => {
-                    return;
+                err => {
+                    message.reply({ content: err, ephemeral: true });
                 }
             );
         }
