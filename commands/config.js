@@ -4,7 +4,9 @@ import {
     prisma,
     pullServerConfig,
     pullServerConfigNoInsert,
+    sha1sum,
 } from "../utils/db.js";
+import { imageExportFormats } from "../utils/utils.js";
 
 /**
  * this function shows the configuration, enables or disables auto-embed
@@ -18,7 +20,7 @@ async function configAutoEmbed(interaction) {
 
     // breaking if config is null
     if (config === null) {
-        console.log(`Error retrieving information about ${interaction.guild.id}.`);
+        console.log(`Error retrieving information about ${sha1sum(interaction.guild.id)}.`);
         return await interaction.reply({
             content: "There was an error retrieving information about your server.",
             ephemeral: true
@@ -45,7 +47,7 @@ async function configAutoEmbed(interaction) {
     // user is actually changing the config, need to update the database
     const result = await prisma.config.update({
         where: {
-            server: interaction.guild.id,
+            server: sha1sum(interaction.guild.id),
         },
         data: {
             globalEmbed: data,
@@ -111,7 +113,7 @@ async function configRole(interaction) {
 
     // logging
     console.log(
-        `Updating the saved role ${config.role} to ${data} for server ${interaction.guild.id}.`
+        `Updating the saved role ${config.role} to ${data} for server ${sha1sum(interaction.guild.id)}.`
     );
 
     // mapping the id to the actual name to make more sense
@@ -129,7 +131,7 @@ async function configRole(interaction) {
     // user is actually changing the role, we need to update the database
     const result = await prisma.config.update({
         where: {
-            server: interaction.guild.id,
+            server: sha1sum(interaction.guild.id),
         },
         data: {
             role: data.id,
@@ -154,6 +156,67 @@ async function configRole(interaction) {
  * this function shows, updates or sets the channels which autoembedding can occur in
  * @param {import("discord.js").Interaction} interaction the discord interaction
  */
+async function configExportFormat(interaction) {
+    // getting options
+    const format = interaction.options.getString("format");
+
+    // config
+    const config = await pullServerConfigNoInsert(interaction.guild.id);
+
+    // breaking if config is null
+    if (config === null) {
+        return await interaction.reply({
+            content: "There was an error retrieving information about your server.",
+            ephemeral: true
+        });
+    }
+
+    // if no action, list current export format 
+    if (format === null) {
+        // returning the set export format
+        const msg = `I am currently exporting images in "${config.exportFormat}" format.`;
+        return await interaction.reply(msg);
+    }
+
+    // if the current format is the same as the desired format, don't do anything
+    if (format === config.exportFormat) {
+        return await interaction.reply({
+            content: `Changed export format to ${format}.`,
+            ephemeral: true,
+        });
+    }
+
+    // logging
+    console.log(`Updating image format of ${sha1sum(interaction.guild.id)} to ${format}.`);
+
+    // user is actually changing the role, we need to update the database
+    const result = await prisma.config.update({
+        where: {
+            server: sha1sum(interaction.guild.id),
+        },
+        data: {
+            exportFormat: format,
+        },
+    });
+    
+    // evaluating the response
+    if (result && result.exportFormat === format) {
+        return await interaction.reply({
+            content: `Changed export format to ${format}.`,
+            ephemeral: true,
+        });
+    } else {
+        return await interaction.reply({
+            content: `There was an error updating ${config.exportFormat} to ${format}.`,
+            ephemeral: true,
+        });
+    }
+}
+
+/**
+ * this function shows, updates or sets the channels which autoembedding can occur in
+ * @param {import("discord.js").Interaction} interaction the discord interaction
+ */
 async function configChannels(interaction) {
     // getting options
     const action = interaction.options.getString("action");
@@ -162,7 +225,7 @@ async function configChannels(interaction) {
     // pulling all channels
     const channels = await prisma.channel.findMany({
         where: {
-            server: interaction.guild.id,
+            server: sha1sum(interaction.guild.id),
         },
     });
 
@@ -205,7 +268,7 @@ async function configChannels(interaction) {
 
     // logging
     console.log(
-        `${interaction.guild.id} has ${channels.length} channels saved.`
+        `${sha1sum(interaction.guild.id)} has ${channels.length} channels saved.`
     );
 
     /// updating the database
@@ -236,7 +299,7 @@ async function configChannels(interaction) {
             const toAdd = await prisma.channel.create({
                 data: {
                     channel: channel.id,
-                    server: interaction.guild.id,
+                    server: sha1sum(interaction.guild.id),
                 },
             });
 
@@ -288,7 +351,7 @@ async function configChannels(interaction) {
             const toRemove = await prisma.channel.delete({
                 where: {
                     channel: channel.id,
-                    server: interaction.guild.id,
+                    server: sha1sum(interaction.guild.id),
                 },
             });
 
@@ -396,9 +459,11 @@ async function config(interaction) {
             return await configChannels(interaction);
         case "role":
             return await configRole(interaction);
+        case "format":
+            return await configExportFormat(interaction);
         default:
             return interaction.reply({
-                content: `Cannot configure unknown option ${option}.`,
+                content: `Cannot configure unknown option: ${option}.`,
                 ephemeral: true,
             });
     }
@@ -456,6 +521,29 @@ const Config = {
                             "The role that can configure the bot ."
                         );
                 });
+        })
+        .addSubcommand(subcommand => {
+            return subcommand
+                .setName("format")
+                .setDescription(
+                    'Changes the output format of images. (default "png")'
+                )
+                .addStringOption(option => {
+                    // setting up the option
+                    option
+                        .setName("format")
+                        .setDescription(
+                            "List of preset image formats."
+                        );
+
+                    // adding all the options
+                    imageExportFormats.forEach(format => {
+                        option.addChoices({ name: format, value: format });
+                    });
+
+                    // returning the option
+                    return option;
+                })
         }),
     execute: config,
 };

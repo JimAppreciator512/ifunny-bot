@@ -1,7 +1,7 @@
 import request from "request";
 import sharp from "sharp";
 import { Buffer } from "node:buffer";
-import { extractDatatype, extractiFunnyLink } from "../utils/utils.js";
+import { extractDatatype, extractiFunnyLink, imageExportFormats } from "../utils/utils.js";
 import { AttachmentBuilder } from "discord.js";
 import { JSDOM } from "jsdom";
 import { defaultPayload } from "./payload.js";
@@ -29,8 +29,9 @@ function chooseRandomPost() {
  * @param {String} content the content to be parsed
  * @param {function(String)} resolve a way to send a message to discord
  * @param {function(String)} err a way to send an error message to the user
+ * @param {String} format the target format of the image
  */
-async function extractPost(content, resolve, err) {
+async function extractPost(content, resolve, err, format) {
     // extracting the url from the string
     const url = extractiFunnyLink(content);
     if (url === null) {
@@ -141,11 +142,19 @@ async function extractPost(content, resolve, err) {
 
                 // geting the url where the content is stored
                 const contentUrl = el.getAttribute(attribute);
+                                    
+                // choosing export image format
+                const __format = ((f) => {
+                    if (imageExportFormats.includes(f)) {
+                        return f
+                    }
+                    return "png";
+                })(format);
 
                 // getting the filename
-                const fpattern = /co\/\w+\/(.*\..{3,4})$/;
+                const fpattern = /co\/\w+\/(.*)(_1)?\.\w{3,4}$/;
                 const fname =
-                    contentUrl.match(fpattern)[1] ?? `ifunny_${datatype}`;
+                    `${contentUrl.match(fpattern)[1]}.${__format}` ?? `ifunny_${datatype}`;
 
                 // logging
                 console.log(
@@ -202,14 +211,38 @@ async function extractPost(content, resolve, err) {
                             image
                                 .metadata()
                                 .then(meta => {
-                                    return image
-                                        .resize({
+                                    // resizing the image
+                                    image.resize({
                                             width: meta.width,
                                             height: meta.height - 20,
                                             position: "top",
-                                        })
-                                        .png() // because png is the best format
-                                        .toBuffer({ resolveWithObject: true });
+                                        });
+
+                                    // formatting the image
+                                    switch (__format) {
+                                        case "png":
+                                            image.png({
+                                                quality: 75,
+                                                palette: true
+                                            });
+                                            break;
+                                        case "heif":
+                                            image.heif({
+                                                quality: 75,
+                                                lossless: true
+                                            });
+                                            break;
+                                        default:
+                                            // defaulting to png
+                                            image.png({
+                                                quality: 75,
+                                                palette: true
+                                            });
+                                            break;
+                                    }
+                                    
+                                    // returning the image object
+                                    return image.toBuffer({ resolveWithObject: true });
                                 })
                                 .then(({ data }) => {
                                     return resolve({

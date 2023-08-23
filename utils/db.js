@@ -47,6 +47,7 @@ async function insertServerToDB(id) {
             server: hash,
             globalEmbed: true,
             role: "",
+            exportFormat: "png"
         },
     });
 }
@@ -116,4 +117,5 @@ export {
     pullServerConfig,
     pullServerConfigNoInsert,
     pullChannels,
+    sha1sum
 };

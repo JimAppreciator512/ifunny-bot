@@ -80,7 +80,8 @@ function OnMessageCreate(client) {
                         `There was an error during auto embed: ${error}`
                     );
                     return;
-                }
+                },
+                serverConfig.exportFormat
             );
         }
     };

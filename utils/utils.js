@@ -21,3 +21,9 @@ export function extractDatatype(url) {
     // getting the datatype of the url
     return url.match(ifunnyLinkDatatype)[1];
 }
+
+export const imageExportFormats = [
+    "png",
+    "heif"
+];
+

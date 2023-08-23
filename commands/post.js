@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from "discord.js";
 import extractPost from "../utils/extractpost.js";
+import { pullServerConfigNoInsert } from "../utils/db.js";
 
 /**
  * this function is a nice wrapper around the `extractPost` function
@@ -27,8 +28,11 @@ async function post(interaction) {
     /** @type String */
     const url = interaction.options.getString("link");
 
+    // pulling the server config
+    const config = await pullServerConfigNoInsert(interaction.guild.id);
+
     // extracting the post
-    await extractPost(url, reply, ereply);
+    await extractPost(url, reply, ereply, config.exportFormat);
 }
 
 const Post = {

@@ -14,8 +14,9 @@ model Channel {
 }
 
 model Config {
-  server      String    @id
-  globalEmbed Boolean   @default(true)
-  role        String    @default("")
-  Channel     Channel[]
+  server       String    @id
+  globalEmbed  Boolean   @default(true)
+  role         String    @default("")
+  exportFormat String    @default("png")
+  Channel      Channel[]
 }
