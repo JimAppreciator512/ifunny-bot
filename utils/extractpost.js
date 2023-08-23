@@ -152,9 +152,11 @@ async function extractPost(content, resolve, err, format) {
                 })(format);
 
                 // getting the filename
-                const fpattern = /co\/\w+\/(.*)(_1)?\.\w{3,4}$/;
+                const fpattern = /co\/\w+\/([0-9a-f]*)(?:_1)?\.(\w{3,4})$/;
+                const match = contentUrl.match(fpattern);
+                // console.log(match);
                 const fname =
-                    `${contentUrl.match(fpattern)[1]}.${__format}` ?? `ifunny_${datatype}`;
+                    `${match[1]}.${match[2] === "jpg" ? __format : match[2]}`;
 
                 // logging
                 console.log(
@@ -217,6 +219,9 @@ async function extractPost(content, resolve, err, format) {
                                             height: meta.height - 20,
                                             position: "top",
                                         });
+
+                                    // logging
+                                    console.log(`Exporting image to ${__format} format.`);
 
                                     // formatting the image
                                     switch (__format) {

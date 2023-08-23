@@ -449,9 +449,10 @@ async function config(interaction) {
 
     // logging
     console.log(
-        `User ${interaction.user.username} has valid permissions, they can execute ${option}.`
+        `User ${interaction.user.username} has valid permissions, they can execute config option: ${option}.`
     );
 
+    // choosing the right function handler based on the action
     switch (option) {
         case "autoembed":
             return await configAutoEmbed(interaction);
@@ -459,7 +460,7 @@ async function config(interaction) {
             return await configChannels(interaction);
         case "role":
             return await configRole(interaction);
-        case "format":
+        case "file-format":
             return await configExportFormat(interaction);
         default:
             return interaction.reply({
@@ -524,7 +525,7 @@ const Config = {
         })
         .addSubcommand(subcommand => {
             return subcommand
-                .setName("format")
+                .setName("file-format")
                 .setDescription(
                     'Changes the output format of images. (default "png")'
                 )
