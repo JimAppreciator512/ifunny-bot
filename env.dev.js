@@ -1,12 +1,12 @@
 // list of handler commands
 import { Routes, REST } from "discord.js";
 import config from "./config.json" assert { type: "json" };
-import { isValidiFunnyLink } from "./utils/utils.js";
+import { isValidiFunnyLink, requiredPermissions } from "./utils/utils.js";
 import extractPost from "./utils/extractpost.js";
 import { pullServerConfig, pullChannels } from "./utils/db.js";
 
 function OnReady(client) {
-    console.log(`Ready! Logged in as ${client.user.tag}`);
+    console.log(`Developer mode active, logged in as: ${client.user.tag}. Are you breaking shit?`);
 
     // for maintenance
     client.user.setActivity("Down for maintenance.");
@@ -19,13 +19,19 @@ function OnMessageCreate(client) {
         if (message.guild.id !== config.guildId) return;
 
         // don't react to the bot sending messages
-        if (message.author === client.user.id) return;
+        if (message.author.id === client.user.id) return;
+
+        // automatically embed a post if there is a valid ifunny link in it
+        if (!isValidiFunnyLink(message.content)) return;
+
+        // logging
+        console.log(`Auto-embedding content from ${message.content}`);
 
         // querying the prisma db to see if this server has "globalEmbed" enabled
         const serverConfig = await pullServerConfig(message.guild.id);
 
         // if global config is disabled, stop function
-        if (serverConfig.globalEmbed === false) {
+        if (serverConfig && serverConfig.globalEmbed === false) {
             // global embed is disabled, aborting
             console.log(
                 `Server ${message.guild.id} has global embed disabled, checking for a saved channel.`
@@ -35,7 +41,7 @@ function OnMessageCreate(client) {
             const channels = await pullChannels(message.guild.id);
 
             // there are no saved channels
-            if (channels.length === 0) {
+            if (channels && channels.length === 0) {
                 console.log(
                     `There are no saved channels for ${message.guild.id}, aborting auto-embed.`
                 );
@@ -62,28 +68,33 @@ function OnMessageCreate(client) {
             console.log(
                 `Allowing auto-embed in channel ${message.channel.id}.`
             );
+        } else {
+            console.error("WARNING: Could not pull server information during auto-embed, embedding anyways.");
         }
 
-        // automatically embed a post if there is a valid ifunny link in it
-        if (isValidiFunnyLink(message.content)) {
-            // logging
-            console.log(`Auto-embedding content from ${message.content}`);
-
-            // extracting the post in the message
-            extractPost(
-                message.content,
-                resolve => {
-                    message.reply(resolve);
-                },
-                error => {
-                    console.log(
-                        `There was an error during auto embed: ${error}`
-                    );
-                    return;
-                },
-                serverConfig.exportFormat
-            );
+        // test for file permissions
+        if (
+            requiredPermissions.every(perm => {
+                return message.guild.me.permissions.includes(perm);
+            })
+        ) {
+            return message.reply({
+                content: "I cannot post images or messages in this channel, update my permissions.",
+                ephemeral: true,
+            });
         }
+
+        // extracting the post in the message
+        return extractPost(
+            message.content,
+            resolve => {
+                message.reply(resolve);
+            },
+            error => {
+                console.log(`There was an error during auto embed: ${error}`);
+            },
+            serverConfig ? serverConfig.exportFormat : "png"
+        );
     };
 }
 
@@ -123,7 +134,7 @@ function OnInteractionCreate(client) {
             await command.execute(interaction);
         } catch (error) {
             // something went wrong executing this command
-            console.error(error);
+            console.error("An error occured:\n", error);
             await interaction.reply({
                 content: `An error occurred using ${interaction.commandName}`,
                 ephemeral: true,

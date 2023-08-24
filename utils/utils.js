@@ -27,3 +27,9 @@ export const imageExportFormats = [
     "heif"
 ];
 
+export const requiredPermissions = [
+    "SEND_MESSAGES",
+    "EMBED_LINKS",
+    "ATTACH_FILES"
+]
+

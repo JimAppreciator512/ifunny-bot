@@ -9,6 +9,16 @@ const sha1sum = input => {
     return Crypto.createHash("sha1").update(input).digest("hex");
 };
 
+// a simple shorthand to log error
+function prismaErrorHandler(reason) {
+    if (reason.code === "P2021") {
+        console.error("WARNING: RUNNING BOT WITHOUT LIVE DATABASE\n", reason);
+    } else {
+        console.error("WARNING: UNKNOWN ERROR\n", reason);
+    }
+    return undefined;
+}
+
 /**
  * this function pulls all of the channel ids that are associated with the server
  * @param {String} id the id of the server
@@ -22,11 +32,16 @@ async function pullChannels(id) {
     console.log(`Fetching all channels from ${hash}.`);
 
     // pulling all the channels from the channels table
-    return await prisma.channel.findMany({
-        where: {
-            server: hash,
-        },
-    });
+    return prisma.channel
+        .findMany({
+            where: {
+                server: hash,
+            },
+        })
+        .then(result => {
+            return result;
+        })
+        .catch(prismaErrorHandler);
 }
 
 /**
@@ -42,14 +57,19 @@ async function insertServerToDB(id) {
     console.log(`Inserting the server ${hash} into the database.`);
 
     // adding the server to the database
-    return await prisma.config.create({
-        data: {
-            server: hash,
-            globalEmbed: true,
-            role: "",
-            exportFormat: "png"
-        },
-    });
+    return prisma.config
+        .create({
+            data: {
+                server: hash,
+                globalEmbed: true,
+                role: "",
+                exportFormat: "png",
+            },
+        })
+        .then(result => {
+            return result;
+        })
+        .catch(prismaErrorHandler);
 }
 
 /**
@@ -63,11 +83,16 @@ async function pullServerConfigNoInsert(id) {
     const hash = sha1sum(id);
 
     // pulling the server config without inserting the server into the database
-    return await prisma.config.findFirst({
-        where: {
-            server: hash,
-        },
-    });
+    return prisma.config
+        .findFirst({
+            where: {
+                server: hash,
+            },
+        })
+        .then(result => {
+            return result;
+        })
+        .catch(prismaErrorHandler);
 }
 
 /**
@@ -84,7 +109,7 @@ async function pullServerConfig(id) {
     const config = await pullServerConfigNoInsert(id);
 
     // inserting server into DB if not exists
-    if (config == null) {
+    if (!config) {
         // logging
         console.log(
             `Configuration for server ${server_hash} doesn't exist, creating.`
@@ -99,8 +124,11 @@ async function pullServerConfig(id) {
                 `Successfully added server ${server_hash} to the "Config" table.`
             );
         } else {
-            console.error(`Couldn't add server ${server_hash} to the "Config" table.`);
+            console.error(
+                `Couldn't add server ${server_hash} to the "Config" table.`
+            );
             console.error("Reason:", result);
+            return undefined;
         }
 
         // returning with the new config
@@ -111,11 +139,32 @@ async function pullServerConfig(id) {
     return config;
 }
 
+async function executeQuery(server, table, action, query) {
+    // copying the query
+    const __q = query;
+
+    // passing in the server hash
+    if (__q.data && !Object.keys(__q.data).includes("server")) {
+        if (__q.where) {
+            __q.where.server = sha1sum(server);
+        } else {
+            __q.where = { server: sha1sum(server) };
+        }
+    }
+    // run query against table
+    return await prisma[table][action](query)
+        .then(result => {
+            return result;
+        })
+        .catch(prismaErrorHandler);
+}
+
 export {
     prisma,
     insertServerToDB,
     pullServerConfig,
     pullServerConfigNoInsert,
     pullChannels,
-    sha1sum
+    executeQuery,
+    sha1sum,
 };

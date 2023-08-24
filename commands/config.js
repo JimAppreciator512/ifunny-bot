@@ -1,6 +1,7 @@
 // new file for configuring the bot on a server basis
 import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import {
+    executeQuery,
     prisma,
     pullServerConfig,
     pullServerConfigNoInsert,
@@ -19,7 +20,7 @@ async function configAutoEmbed(interaction) {
     const config = await pullServerConfigNoInsert(interaction.guild.id);
 
     // breaking if config is null
-    if (config === null) {
+    if (!config) {
         console.log(`Error retrieving information about ${sha1sum(interaction.guild.id)}.`);
         return await interaction.reply({
             content: "There was an error retrieving information about your server.",
@@ -28,7 +29,7 @@ async function configAutoEmbed(interaction) {
     }
 
     // user wants to display the current setting
-    if (data === null) {
+    if (!data) {
         // responding to caller
         return await interaction.reply({
             ephemeral: true,
@@ -41,17 +42,17 @@ async function configAutoEmbed(interaction) {
     // user wants to set the configuration
     if (config.globalEmbed === data) {
         // breaking early here since there is no point changing true to true
-        return await interaction.reply(`Set "auto-embed" to ${data}`);
+        return await interaction.reply({
+            content: `Set "auto-embed" to ${data}`,
+            ephemeral: true,
+        });
     }
 
     // user is actually changing the config, need to update the database
-    const result = await prisma.config.update({
-        where: {
-            server: sha1sum(interaction.guild.id),
-        },
+    const result = await executeQuery(interaction.guild.id, "config", "update", {
         data: {
-            globalEmbed: data,
-        },
+            globalEmbed: data
+        }
     });
 
     // evaluating the response
@@ -61,6 +62,7 @@ async function configAutoEmbed(interaction) {
             ephemeral: true,
         });
     } else {
+        console.error("Error during configAutoEmbed.\n", result);
         return await interaction.reply({
             content: `There was an error updating "auto-embed".`,
             ephemeral: true,
@@ -79,7 +81,7 @@ async function configRole(interaction) {
     const config = await pullServerConfigNoInsert(interaction.guild.id);
 
     // breaking if config is null
-    if (config === null) {
+    if (!config) {
         return await interaction.reply({
             content: "There was an error retrieving information about your server.",
             ephemeral: true
@@ -87,7 +89,7 @@ async function configRole(interaction) {
     }
 
     // user wants to display the current setting
-    if (data === null) {
+    if (!data) {
         // logging
         console.log(
             `Replying to user ${interaction.user.username} with the saved role ${config.role}.`
@@ -95,7 +97,7 @@ async function configRole(interaction) {
 
         // if the role is "@everyone" this actually means "manage guild" & "admin"
         var message;
-        if (config.role === null || config.role === "1036130140977119322") {
+        if (!config.role || config.role === "1036130140977119322") {
             message =
                 'Any user with "Manage Server" or "Administrator" can use this command.';
         } else {
@@ -129,13 +131,10 @@ async function configRole(interaction) {
     }
 
     // user is actually changing the role, we need to update the database
-    const result = await prisma.config.update({
-        where: {
-            server: sha1sum(interaction.guild.id),
-        },
+    const result = await executeQuery(interaction.guild.id, "config", "update", {
         data: {
-            role: data.id,
-        },
+            role: data.id
+        }
     });
 
     // evaluating the response
@@ -164,7 +163,7 @@ async function configExportFormat(interaction) {
     const config = await pullServerConfigNoInsert(interaction.guild.id);
 
     // breaking if config is null
-    if (config === null) {
+    if (!config) {
         return await interaction.reply({
             content: "There was an error retrieving information about your server.",
             ephemeral: true
@@ -172,7 +171,7 @@ async function configExportFormat(interaction) {
     }
 
     // if no action, list current export format 
-    if (format === null) {
+    if (!format) {
         // returning the set export format
         const msg = `I am currently exporting images in "${config.exportFormat}" format.`;
         return await interaction.reply(msg);
@@ -190,13 +189,10 @@ async function configExportFormat(interaction) {
     console.log(`Updating image format of ${sha1sum(interaction.guild.id)} to ${format}.`);
 
     // user is actually changing the role, we need to update the database
-    const result = await prisma.config.update({
-        where: {
-            server: sha1sum(interaction.guild.id),
-        },
+    const result = await executeQuery(interaction.guild.id, "config", "update", {
         data: {
-            exportFormat: format,
-        },
+            exportFormat: format
+        }
     });
     
     // evaluating the response
@@ -230,7 +226,7 @@ async function configChannels(interaction) {
     });
 
     // if no action, list all channels
-    if (action === null && channel === null) {
+    if (!action && !channel) {
         // there are no saved channels
         if (channels.length === 0) {
             return await interaction.reply({
@@ -251,7 +247,7 @@ async function configChannels(interaction) {
     }
 
     // if no action and channel exists, reply with help message
-    if (action === null && channel !== null) {
+    if (!action && channel) {
         return await interaction.reply({
             content: `Need an action for ${channel}.`,
             ephemeral: true,
@@ -259,7 +255,7 @@ async function configChannels(interaction) {
     }
 
     // if action exists and no channel, reply with help message
-    if (action !== null && channel === null) {
+    if (action && !channel) {
         return await interaction.reply({
             content: `Need a channel to ${action}.`,
             ephemeral: true,
@@ -271,119 +267,85 @@ async function configChannels(interaction) {
         `${sha1sum(interaction.guild.id)} has ${channels.length} channels saved.`
     );
 
-    /// updating the database
-    switch (action) {
-        case "add":
-            // checking if the channel is present in the database
-            if (
-                channels.filter(obj => {
-                    return obj.channel === channel.id;
-                }).length !== 0
-            ) {
-                // logging
-                console.log(
-                    `${channel.id} was found in the database, not adding.`
-                );
-
-                // channel was found, breaking early
-                return await interaction.reply({
-                    content: `Successfully saved ${channel}.`,
-                    ephemeral: true,
-                });
-            }
-
-            // logging
-            console.log(`${channel.id} wasn't found in the database, adding.`);
-
-            // channel was not found, adding to the database
-            const toAdd = await prisma.channel.create({
-                data: {
-                    channel: channel.id,
-                    server: sha1sum(interaction.guild.id),
-                },
-            });
-
-            // asserting the result of the query
-            if (
-                toAdd &&
-                toAdd.server === interaction.guild.id &&
-                toAdd.channel === channel.id
-            ) {
-                // logging
-                console.log(`Successfully saved ${channel} to the database.`);
-
-                return await interaction.reply({
-                    content: `Successfully saved ${channel}.`,
-                    ephemeral: true,
-                });
-            } else {
-                // logging
-                console.error("There was an error", result);
-
-                return await interaction.reply({
-                    content: `There was an error saving ${channel}.`,
-                    ephemeral: true,
-                });
-            }
-        case "remove":
-            // checking if the channel is present in the database
-            if (
-                channels.filter(obj => {
-                    return obj.channel === channel.id;
-                }).length === 0
-            ) {
-                // logging
-                console.log(
-                    `${channel.id} was found in the database, not removing.`
-                );
-
-                // channel was found, breaking early
-                return await interaction.reply({
-                    content: `${channel} isn't saved, cannot remove.`,
-                    ephemeral: true,
-                });
-            }
-
-            // logging
-            console.log(`${channel.id} was found in the database, removing.`);
-
-            // channel was not found, adding to the database
-            const toRemove = await prisma.channel.delete({
-                where: {
-                    channel: channel.id,
-                    server: sha1sum(interaction.guild.id),
-                },
-            });
-
-            // asserting the result of the query
-            if (
-                toRemove &&
-                toRemove.server === interaction.guild.id &&
-                toRemove.channel === channel.id
-            ) {
-                // logging
-                console.log(
-                    `Successfully removed ${channel} from the database.`
-                );
-
-                return await interaction.reply({
-                    content: `Successfully removed ${channel}.`,
-                    ephemeral: true,
-                });
-            } else {
-                // logging
-                console.error("There was an error", result);
-
-                return await interaction.reply({
-                    content: `There was an error removing ${channel}.`,
-                    ephemeral: true,
-                });
-            }
-        default:
+    if (!["add", "remove"].includes(action)) {
             return await interaction.reply({
                 content: "You somehow managed to get here, good job!",
                 ephemeral: true,
             });
+    }
+
+    // for string formatting
+    const verb = action === "add" ? "sav" : "remov";
+
+    /// testing if breaking early (adding a duplicate, removing a channel that isn't saved)
+    const breakEarly = ((a) => {
+        switch (a) {
+            case "add":
+                return channels.filter(obj => {
+                    return obj.channel === channel.id;
+                }).length > 0;
+            case "remove":
+                return channels.filter(obj => {
+                    return obj.channel === channel.id;
+                }).length === 0;
+        }
+    })(action);
+
+    if (breakEarly) {
+        // logging
+        console.log(
+            `${channel.id} was${action === "remove" ? "n't" : ""} found in the database, not ${verb}ing.`
+        );
+
+        // channel was found, breaking early
+        return await interaction.reply({
+            content: `Successfully ${verb}ed ${channel}.`,
+            ephemeral: true,
+        });
+    } else {
+        // logging
+        console.log(`${channel.id} was${action === "add" ? "n't" : ""} found in the database, ${action === "add" ? "adding" : "removing"}.`);
+    }
+
+    // performing query
+    const query = await (async (a) => {
+        switch (a) {
+            case "remove":
+                return await executeQuery(interaction.guild.id, "channel", "delete", {
+                    where: {
+                        channel: channel.id
+                    }
+                });
+            default:
+                return await executeQuery(interaction.guild.id, "channel", "create", {
+                    data: {
+                        channel: channel.id,
+                        server: sha1sum(interaction.guild.id),
+                    },
+                })
+        }
+    })(action);
+
+    // asserting the result of the query
+    if (
+        query &&
+        query.channel === channel.id
+    ) {
+        // logging
+        console.log(`Successfully ${verb}ed ${channel.id} to the database.`);
+
+        return await interaction.reply({
+            content: `Successfully ${verb}ed ${channel}.`,
+            ephemeral: true,
+        });
+    } else {
+        // logging
+        console.error("There was an error", query);
+
+        return await interaction.reply({
+            content: `There was an error ${verb}ing ${channel}.`,
+            ephemeral: true,
+        });
     }
 }
 
@@ -393,10 +355,19 @@ async function configChannels(interaction) {
  */
 async function config(interaction) {
     // check if the server is saved in the database
-    // if saved, continue
+    // if saved,
+    //  continue
     // else,
     //  add the server to the database
     const config = await pullServerConfig(interaction.guild.id);
+
+    // breaking if there's an error
+    if (!config) {
+        return await interaction.reply({
+            content: "There was an error retrieving information about your server.",
+            ephemeral: true
+        });
+    }
 
     // checking if the user has Administrator or ManageGuild
     if (
