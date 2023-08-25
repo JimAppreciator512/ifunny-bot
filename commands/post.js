@@ -32,7 +32,7 @@ async function post(interaction) {
     const config = await pullServerConfigNoInsert(interaction.guild.id);
 
     // extracting the post
-    await extractPost(url, reply, ereply, config.exportFormat);
+    await extractPost(url, reply, ereply, config ? config.exportFormat : "png");
 }
 
 const Post = {
