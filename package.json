@@ -1,6 +1,6 @@
 {
   "name": "iFunny-Bot",
-  "version": "2.2.0",
+  "version": "3.0.0",
   "description": "A discord bot that properly embeds iFunny.co links",
   "main": "app.js",
   "type": "module",

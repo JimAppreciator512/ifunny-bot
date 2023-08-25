@@ -1,8 +1,9 @@
 // list of handler commands
 import { Routes, REST } from "discord.js";
 import config from "./config.json" assert { type: "json" };
-import { isValidiFunnyLink } from "./utils/utils.js";
+import { isValidiFunnyLink, requiredPermissions } from "./utils/utils.js";
 import extractPost from "./utils/extractpost.js";
+import { pullServerConfig, pullChannels } from "./utils/db.js";
 
 function OnReady(client) {
     console.log(`Ready! Logged in as ${client.user.tag}`);
@@ -17,27 +18,82 @@ function OnMessageCreate(client) {
         if (message.guild.id !== config.guildId) return;
 
         // don't react to the bot sending messages
-        if (message.author === client.user.id) return;
+        if (message.author.id === client.user.id) return;
 
         // automatically embed a post if there is a valid ifunny link in it
-        if (isValidiFunnyLink(message.content)) {
-            // logging
-            console.log(`Auto-embedding content from ${message.content}`);
+        if (!isValidiFunnyLink(message.content)) return;
 
-            // extracting the post in the message
-            extractPost(
-                message.content,
-                resolve => {
-                    message.reply(resolve);
-                },
-                error => {
-                    console.log(
-                        `There was an error during auto embed: ${error}`
-                    );
-                    return;
-                }
+        // logging
+        console.log(`Auto-embedding content from ${message.content}`);
+
+        // querying the prisma db to see if this server has "globalEmbed" enabled
+        const serverConfig = await pullServerConfig(message.guild.id);
+
+        // if global config is disabled, stop function
+        if (serverConfig && serverConfig.globalEmbed === false) {
+            // global embed is disabled, aborting
+            console.log(
+                `Server ${message.guild.id} has global embed disabled, checking for a saved channel.`
             );
+
+            // if the interaction was in a saved channel, allow
+            const channels = await pullChannels(message.guild.id);
+
+            // there are no saved channels
+            if (channels && channels.length === 0) {
+                console.log(
+                    `There are no saved channels for ${message.guild.id}, aborting auto-embed.`
+                );
+                return;
+            }
+
+            // there are one or more saved channels
+            console.log(
+                `${message.guild.id} has one or more saved channels, checking if the interaction's channel is valid.`
+            );
+
+            if (
+                channels.filter(obj => {
+                    return obj.channel === message.channel.id;
+                }).length === 0
+            ) {
+                console.log(
+                    `The message was sent in a channel that doesn't have auto-embed enabled, aborting.`
+                );
+                return;
+            }
+
+            // logging
+            console.log(
+                `Allowing auto-embed in channel ${message.channel.id}.`
+            );
+        } else {
+            console.error("WARNING: Could not pull server information during auto-embed, embedding anyways.");
         }
+
+        // test for file permissions
+        if (
+            requiredPermissions.every(perm => {
+                return message.guild.me.permissions.includes(perm);
+            })
+        ) {
+            return message.reply({
+                content: "I cannot post images or messages in this channel, update my permissions.",
+                ephemeral: true,
+            });
+        }
+
+        // extracting the post in the message
+        return extractPost(
+            message.content,
+            resolve => {
+                message.reply(resolve);
+            },
+            error => {
+                console.log(`There was an error during auto embed: ${error}`);
+            },
+            serverConfig ? serverConfig.exportFormat : "png"
+        );
     };
 }
 

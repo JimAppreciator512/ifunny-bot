@@ -397,7 +397,7 @@ async function config(interaction) {
                 );
                 return interaction.reply({
                     ephemeral: true,
-                    content: `You do not have the role ${roleName}.`,
+                    content: `You do not have the role ${roleName} and cannot execute this command.`,
                 });
             }
         } else {
