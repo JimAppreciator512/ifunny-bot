@@ -74,8 +74,8 @@ function OnMessageCreate(client) {
 
         // test for file permissions
         if (
-            requiredPermissions.every(perm => {
-                return message.guild.me.permissions.includes(perm);
+            !requiredPermissions.every(perm => {
+                return message.guild.members.me.permissions.has(perm);
             })
         ) {
             return message.reply({
