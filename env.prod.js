@@ -14,9 +14,6 @@ function OnReady(client) {
 
 function OnMessageCreate(client) {
     return async message => {
-        // ignoring messages that aren't from the development server
-        if (message.guild.id !== config.guildId) return;
-
         // don't react to the bot sending messages
         if (message.author.id === client.user.id) return;
 
