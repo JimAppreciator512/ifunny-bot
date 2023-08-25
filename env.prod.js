@@ -73,8 +73,9 @@ function OnMessageCreate(client) {
 
         // test for file permissions
         if (
-            requiredPermissions.every(perm => {
-                return message.guild.me.permissions.includes(perm);
+            !requiredPermissions.every(perm => {
+                console.log(`The bot ${!message.guild.members.me.permissions.has(perm) ? "doesn't" : ""} has ${perm.toString()}.`);
+                return message.guild.members.me.permissions.has(perm);
             })
         ) {
             return message.reply({

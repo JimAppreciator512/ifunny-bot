@@ -1,3 +1,5 @@
+import { PermissionsBitField } from "discord.js";
+
 export const ifunnyLinkPattern =
     /(https:\/\/ifunny.co\/(picture|video|gif|meme)\/(.*){1,20}(\?.*){0,20})/;
 export const ifunnyLinkDatatype = /(picture|video|gif|meme)/;
@@ -28,8 +30,8 @@ export const imageExportFormats = [
 ];
 
 export const requiredPermissions = [
-    "SEND_MESSAGES",
-    "EMBED_LINKS",
-    "ATTACH_FILES"
+    PermissionsBitField.Flags.EmbedLinks,
+    PermissionsBitField.Flags.SendMessages,
+    PermissionsBitField.Flags.AttachFiles
 ]
 
