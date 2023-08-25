@@ -50,9 +50,9 @@ async function extractPost(content, resolve, err, format) {
 
     // trying to get an HTTP request from that url
     try {
-        request(url, (err, res, _) => {
-            if (err) {
-                console.log("An error occurred", err);
+        request(url, (__err, res, _) => {
+            if (__err) {
+                console.log("An error occurred", __err);
                 return err(
                     "Something went wrong when making the HTTP request."
                 );
@@ -185,12 +185,12 @@ async function extractPost(content, resolve, err, format) {
                     // requesting the image from the source
                     request(
                         { uri: contentUrl, encoding: null },
-                        (err, res, body) => {
+                        (__err2, res, body) => {
                             // there was an error in transit
-                            if (err) {
+                            if (__err2) {
                                 console.log(
                                     "Error during HTTP request for image",
-                                    err
+                                    __err2
                                 );
                                 return err(
                                     "There was an error while getting the image from the source."
@@ -202,7 +202,7 @@ async function extractPost(content, resolve, err, format) {
                                 res.statusCode !== 200 ||
                                 res.statusCode >= 400
                             ) {
-                                console.log("The status code isn't 200", err);
+                                console.log("The status code isn't 200", res.statusCode);
                                 return err(
                                     "There was an error getting the source of the image."
                                 );
@@ -259,10 +259,10 @@ async function extractPost(content, resolve, err, format) {
                                         embeds: [embed],
                                     });
                                 })
-                                .catch(err => {
+                                .catch(__err3 => {
                                     console.log(
                                         "Error during image cropping.",
-                                        err
+                                        __err3
                                     );
                                     return err(
                                         "There was an error while cropping the image."
