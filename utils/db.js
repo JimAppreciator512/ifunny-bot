@@ -2,7 +2,15 @@ import { PrismaClient } from "@prisma/client";
 import Crypto from "node:crypto";
 
 // the connection to the database
-const prisma = new PrismaClient();
+const prisma = (_ => {
+    try {
+        const __prisma = new PrismaClient();
+        return __prisma
+    } catch (error) {
+        console.error("Could not instantiate the prisma client.");
+        return undefined
+    }
+})();
 
 // returns the sha1 digest of some input
 const sha1sum = input => {
@@ -25,6 +33,11 @@ function prismaErrorHandler(reason) {
  * @returns a list of channels
  */
 async function pullChannels(id) {
+    // early aborting
+    if (!prisma) {
+        return prismaErrorHandler({ reason: "Couldn't instantiate prisma client." });
+    }
+
     // hashing
     const hash = sha1sum(id);
 
@@ -50,6 +63,11 @@ async function pullChannels(id) {
  * @returns the result of the insert
  */
 async function insertServerToDB(id) {
+    // early aborting
+    if (!prisma) {
+        return prismaErrorHandler({ reason: "Couldn't instantiate prisma client." });
+    }
+
     // hashing
     const hash = sha1sum(id);
 
@@ -79,6 +97,11 @@ async function insertServerToDB(id) {
  * @returns the configuration of the server
  */
 async function pullServerConfigNoInsert(id) {
+    // early aborting
+    if (!prisma) {
+        return prismaErrorHandler({ reason: "Couldn't instantiate prisma client." });
+    }
+
     // hashing
     const hash = sha1sum(id);
 
@@ -102,6 +125,11 @@ async function pullServerConfigNoInsert(id) {
  * @returns the configuration of the server
  */
 async function pullServerConfig(id) {
+    // early aborting
+    if (!prisma) {
+        return prismaErrorHandler({ reason: "Couldn't instantiate prisma client." });
+    }
+
     // hashing
     const server_hash = sha1sum(id);
 
@@ -140,6 +168,11 @@ async function pullServerConfig(id) {
 }
 
 async function executeQuery(server, table, action, query) {
+    // early aborting
+    if (!prisma) {
+        return prismaErrorHandler({ reason: "Couldn't instantiate prisma client." });
+    }
+
     // copying the query
     const __q = query;
 
