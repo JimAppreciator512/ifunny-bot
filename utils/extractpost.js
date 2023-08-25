@@ -1,11 +1,26 @@
 import request from "request";
 import sharp from "sharp";
 import { Buffer } from "node:buffer";
-import { extractDatatype, extractiFunnyLink } from "../utils/utils.js";
+import { extractDatatype, extractiFunnyLink, imageExportFormats } from "../utils/utils.js";
 import { AttachmentBuilder } from "discord.js";
 import { JSDOM } from "jsdom";
 import { defaultPayload } from "./payload.js";
 import { EmbedBuilder } from "@discordjs/builders";
+
+// some handpicked posts
+function chooseRandomPost() {
+    const posts = [
+        "https://ifunny.co/gif/dwi-fondling-his-bulls-balls-as-he-does-his-wife-JOqBtxEfA",
+        "https://ifunny.co/gif/me-after-i-host-funny-clash-2023-with-the-headlining-IK8N9RwhA",
+        "https://ifunny.co/video/riggs-and-dwi-listing-out-the-age-range-they-ve-WebODXSjA",
+        "https://ifunny.co/video/qN0jEBRCA",
+        "https://ifunny.co/gif/deep-web-intel-zqBDS10aA",
+        "https://ifunny.co/gif/deep-web-intel-when-you-mention-the-archive-link-or-exo1giA98",
+        "https://ifunny.co/picture/deep-web-intel-vs-his-fat-gf-s-dad-2mBos8df8"
+    ];
+
+    return posts[Math.floor(Math.random() * posts.length)];
+}
 
 /**
  * this function does the heavy lifting by making an HTTP request to the iFunny link
@@ -14,12 +29,17 @@ import { EmbedBuilder } from "@discordjs/builders";
  * @param {String} content the content to be parsed
  * @param {function(String)} resolve a way to send a message to discord
  * @param {function(String)} err a way to send an error message to the user
+ * @param {String} format the target format of the image
  */
-async function extractPost(content, resolve, err) {
+async function extractPost(content, resolve, err, format) {
     // extracting the url from the string
     const url = extractiFunnyLink(content);
     if (url === null) {
-        return err("Invalid url.");
+
+        // give the user some helpful feedback
+        const __url = chooseRandomPost();
+
+        return err(`Invalid url. Sample url: ${__url}`);
     }
 
     // logging
@@ -122,11 +142,21 @@ async function extractPost(content, resolve, err) {
 
                 // geting the url where the content is stored
                 const contentUrl = el.getAttribute(attribute);
+                                    
+                // choosing export image format
+                const __format = ((f) => {
+                    if (imageExportFormats.includes(f)) {
+                        return f
+                    }
+                    return "png";
+                })(format);
 
                 // getting the filename
-                const fpattern = /co\/\w+\/(.*\..{3,4})$/;
+                const fpattern = /co\/\w+\/([0-9a-f]*)(?:_1)?\.(\w{3,4})$/;
+                const match = contentUrl.match(fpattern);
+                // console.log(match);
                 const fname =
-                    contentUrl.match(fpattern)[1] ?? `ifunny_${datatype}`;
+                    `${match[1]}.${match[2] === "jpg" ? __format : match[2]}`;
 
                 // logging
                 console.log(
@@ -183,14 +213,41 @@ async function extractPost(content, resolve, err) {
                             image
                                 .metadata()
                                 .then(meta => {
-                                    return image
-                                        .resize({
+                                    // resizing the image
+                                    image.resize({
                                             width: meta.width,
                                             height: meta.height - 20,
                                             position: "top",
-                                        })
-                                        .png() // because png is the best format
-                                        .toBuffer({ resolveWithObject: true });
+                                        });
+
+                                    // logging
+                                    console.log(`Exporting image to ${__format} format.`);
+
+                                    // formatting the image
+                                    switch (__format) {
+                                        case "png":
+                                            image.png({
+                                                quality: 75,
+                                                palette: true
+                                            });
+                                            break;
+                                        case "heif":
+                                            image.heif({
+                                                quality: 75,
+                                                lossless: true
+                                            });
+                                            break;
+                                        default:
+                                            // defaulting to png
+                                            image.png({
+                                                quality: 75,
+                                                palette: true
+                                            });
+                                            break;
+                                    }
+                                    
+                                    // returning the image object
+                                    return image.toBuffer({ resolveWithObject: true });
                                 })
                                 .then(({ data }) => {
                                     return resolve({

@@ -52,20 +52,38 @@ async function user(interaction) {
                 }
 
                 // getting the description
-                const description = dom.querySelector(
-                    "div.Hi31 > div.vjX5"
-                ).textContent;
+                const description = (() => {
+                    try {
+                        return dom.querySelector("div.Hi31 > div.vjX5")
+                            .textContent;
+                    } catch (error) {
+                        return "No description.";
+                    }
+                })();
 
                 // parsing the sub count
-                const subCount = / (.*) subscriber/.exec(
-                    dom.querySelector("div.Hi31 > div[class='g+J7'] > a.sWk7")
-                        .textContent
-                )[1];
+                const subCount = (() => {
+                    try {
+                        return / (.*) subscriber/.exec(
+                            dom.querySelector(
+                                "div.Hi31 > div[class='g+J7'] > a.sWk7"
+                            ).textContent
+                        )[1];
+                    } catch (error) {
+                        return "No subscribers.";
+                    }
+                })();
 
                 // parsing the number of features
-                const featureCount = dom
-                    .querySelector("div.Hi31 > div._2tcI")
-                    .textContent.trim();
+                const featureCount = (() => {
+                    try {
+                        return dom
+                            .querySelector("div.Hi31 > div._2tcI")
+                            .textContent.trim();
+                    } catch (error) {
+                        return "No features.";
+                    }
+                })();
 
                 // forming the footer of the embed
                 const footer = `${subCount} subcribers - ${featureCount}`;

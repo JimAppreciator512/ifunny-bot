@@ -4,8 +4,9 @@ import Post from "./post.js";
 import User from "./user.js";
 import About from "./about.js";
 import Hash from "./hashfiles.js";
+import Config from "./config.js";
 
-const commands = [Post, User, About, Hash];
+const commands = [Post, User, About, Hash, Config];
 
 const fields = [
     ...commands.map(cmd => {
