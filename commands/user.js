@@ -2,6 +2,7 @@ import { EmbedBuilder, SlashCommandBuilder } from "discord.js";
 import { JSDOM } from "jsdom";
 import request from "request";
 import { iFunnyIcon } from "../utils/misc.js";
+import { sanitizeUsername } from "../utils/utils.js";
 
 async function user(interaction) {
     // deferring the reply
@@ -9,7 +10,7 @@ async function user(interaction) {
 
     // getting the user to search for
     /** @type String */
-    const username = interaction.options.getString("name");
+    const username = sanitizeUsername(interaction.options.getString("name"));
 
     // logging
     console.log(`Looking user "${username}"...`);

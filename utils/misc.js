@@ -47,3 +47,19 @@ export function randomQuote() {
     // joining the fields
     return `"${quote.quote}" - ${quote.author}`;
 }
+
+// some handpicked posts
+export function chooseRandomPost() {
+    const posts = [
+        "https://ifunny.co/gif/dwi-fondling-his-bulls-balls-as-he-does-his-wife-JOqBtxEfA",
+        "https://ifunny.co/gif/me-after-i-host-funny-clash-2023-with-the-headlining-IK8N9RwhA",
+        "https://ifunny.co/video/riggs-and-dwi-listing-out-the-age-range-they-ve-WebODXSjA",
+        "https://ifunny.co/video/qN0jEBRCA",
+        "https://ifunny.co/gif/deep-web-intel-zqBDS10aA",
+        "https://ifunny.co/gif/deep-web-intel-when-you-mention-the-archive-link-or-exo1giA98",
+        "https://ifunny.co/picture/deep-web-intel-vs-his-fat-gf-s-dad-2mBos8df8",
+    ];
+
+    return posts[Math.floor(Math.random() * posts.length)];
+}
+
