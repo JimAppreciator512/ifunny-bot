@@ -2,6 +2,7 @@ import { EmbedBuilder, SlashCommandBuilder } from "discord.js";
 import { JSDOM } from "jsdom";
 import request from "request";
 import { iFunnyIcon } from "../utils/misc.js";
+import { sanitizeUsername } from "../utils/utils.js";
 
 async function user(interaction) {
     // deferring the reply
@@ -9,7 +10,7 @@ async function user(interaction) {
 
     // getting the user to search for
     /** @type String */
-    const username = interaction.options.getString("name");
+    const username = sanitizeUsername(interaction.options.getString("name"));
 
     // logging
     console.log(`Looking user "${username}"...`);
@@ -88,24 +89,10 @@ async function user(interaction) {
                 // forming the footer of the embed
                 const footer = `${subCount} subcribers - ${featureCount}`;
 
-                // escaping all special characters
-                var e_username = username;
-                [
-                    "\\",
-                    "*",
-                    "_",
-                    "|",
-                    "~",
-                    ">",
-                    "`"
-                ].forEach(char => {
-                    e_username = e_username.replaceAll(char, "\\" + char);
-                });
-
                 // creating a nice embed
                 const embed = new EmbedBuilder()
                     .setColor(0x0099ff)
-                    .setTitle(e_username)
+                    .setTitle(username)
                     .setURL(url)
                     .setThumbnail(icon)
                     .setDescription(description)
