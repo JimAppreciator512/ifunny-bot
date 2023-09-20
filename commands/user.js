@@ -88,10 +88,24 @@ async function user(interaction) {
                 // forming the footer of the embed
                 const footer = `${subCount} subcribers - ${featureCount}`;
 
+                // escaping all special characters
+                var e_username = username;
+                [
+                    "\\",
+                    "*",
+                    "_",
+                    "|",
+                    "~",
+                    ">",
+                    "`"
+                ].forEach(char => {
+                    e_username = e_username.replaceAll(char, "\\" + char);
+                });
+
                 // creating a nice embed
                 const embed = new EmbedBuilder()
                     .setColor(0x0099ff)
-                    .setTitle(username)
+                    .setTitle(e_username)
                     .setURL(url)
                     .setThumbnail(icon)
                     .setDescription(description)
