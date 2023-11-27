@@ -93,9 +93,9 @@ async function extractPost(content, resolve, err, format) {
                 .setThumbnail(payload.iconUrl);
 
             // if content is meme, guess the selector
-            const contentUrl = (d => {
+            const [__datatype, contentUrl] = (d => {
                 // storing the element we want to scrape the source of the video/image/gif from
-                var __el, sel, attr;
+                var __el, sel, attr, __d;
 
                 /// if not meme, then directly assign and not guess
                 if (d !== "meme") {
@@ -116,7 +116,7 @@ async function extractPost(content, resolve, err, format) {
                         // if null, loop, else return false from func
                         if (__el !== null) {
                             // updating the d
-                            d = key;
+                            __d = key;
                             break;
                         }
 
@@ -126,10 +126,13 @@ async function extractPost(content, resolve, err, format) {
                 }
 
                 // getting the content url of the video/image/gif
-                const __cu = __el !== null ? __el.getAttribute(attr) : __el;
+                const __cu = (__el !== null ? __el.getAttribute(attr) : __el);
 
-                return __cu;
+                return [__d, __cu];
             })(datatype);
+
+            // updating the datatype
+            datatype = __datatype;
 
             // this branches if the program couldn't find the element to scrape the content from
             if (!contentUrl) {
