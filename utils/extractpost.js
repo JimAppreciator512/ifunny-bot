@@ -1,9 +1,8 @@
 import request from "request";
-import sharp from "sharp";
-import { Buffer } from "node:buffer";
 import {
     extractDatatype,
     extractiFunnyLink,
+    getExportFormat,
     imageExportFormats,
     scrapePostInformation,
 } from "../utils/utils.js";
@@ -11,6 +10,7 @@ import { AttachmentBuilder } from "discord.js";
 import { JSDOM } from "jsdom";
 import { EmbedBuilder } from "@discordjs/builders";
 import { chooseRandomPost } from "../utils/misc.js";
+import { request_image } from "./format_image.js";
 
 /**
  * this function does the heavy lifting by making an HTTP request to the iFunny link
@@ -30,15 +30,6 @@ async function extractPost(content, resolve, err, format) {
 
         return err(`Invalid url. Sample url: ${__url}`);
     }
-
-    // choosing export image format
-    const __format = (f => {
-        if (imageExportFormats.includes(f)) {
-            return f;
-        }
-        console.error(`There was an invalid image format specified, ${f}`);
-        return "png";
-    })(format);
 
     // logging
     console.log(`Looking in ${url}...`);
@@ -149,7 +140,7 @@ async function extractPost(content, resolve, err, format) {
             const match = contentUrl.match(fpattern);
             // console.log(match);
             const fname = `${match[1]}.${
-                match[2] === "jpg" ? __format : match[2]
+                match[2] === "jpg" ? format : match[2]
             }`;
 
             // logging
@@ -174,107 +165,21 @@ async function extractPost(content, resolve, err, format) {
             } else {
                 console.log(`Cropping picture found at ${url}...`);
 
-                // requesting the image from the source
-                request(
-                    { uri: contentUrl, encoding: null },
-                    (__err2, res2, body) => {
-                        // there was an error in transit
-                        if (__err2) {
-                            console.log(
-                                "Error during HTTP request for image",
-                                __err2
-                            );
-                            return err(
-                                "There was an error while getting the image from the source."
-                            );
-                        }
-
-                        // if no response
-                        if (!res2 || res2.statusCode > 404) {
-                            console.error(
-                                `Couldn't contact the CDN (${contentUrl}) for the ${datatype}.`
-                            );
-                            return err(
-                                "There was an error getting the source of the image."
-                            );
-                        }
-
-                        // erroring if the code isn't 200 or a client/server error
-                        if (res2.statusCode === 404) {
-                            console.error(
-                                `The contacting ${contentUrl} yielded status code ${res2.statusCode}`
-                            );
-                            return err(
-                                "There was an error getting the source of the image."
-                            );
-                        }
-
-                        /// using Sharp because Clipper is shit
-                        const image = sharp(Buffer.from(body));
-                        image
-                            .metadata()
-                            .then(meta => {
-                                // resizing the image
-                                image.resize({
-                                    width: meta.width,
-                                    height: meta.height - 20,
-                                    position: "top",
-                                });
-
-                                // logging
-                                console.log(
-                                    `Exporting image to ${__format} format.`
-                                );
-
-                                // formatting the image
-                                switch (__format) {
-                                    case "png":
-                                        image.png({
-                                            quality: 75,
-                                            palette: true,
-                                        });
-                                        break;
-                                    case "heif":
-                                        image.heif({
-                                            quality: 75,
-                                            lossless: true,
-                                        });
-                                        break;
-                                    default:
-                                        // defaulting to png
-                                        image.png({
-                                            quality: 75,
-                                            palette: true,
-                                        });
-                                        break;
-                                }
-
-                                // returning the image object
-                                return image.toBuffer({
-                                    resolveWithObject: true,
-                                });
-                            })
-                            .then(({ data }) => {
-                                return resolve({
-                                    files: [
-                                        new AttachmentBuilder()
-                                            .setName(fname)
-                                            .setFile(data),
-                                    ],
-                                    embeds: [embed],
-                                });
-                            })
-                            .catch(__err3 => {
-                                console.log(
-                                    "Error during image cropping.",
-                                    __err3
-                                );
-                                return err(
-                                    "There was an error while cropping the image."
-                                );
-                            });
-                    }
-                );
+                // returning the cropped image from the url
+                return request_image(contentUrl, format, true, (file) => {
+                    resolve({
+                        files: [
+                            new AttachmentBuilder()
+                                .setName(fname)
+                                .setFile(file),
+                        ],
+                        embeds: [embed],
+                    });
+                },
+                    () => {
+                    console.log("There was an error cropping the image.");
+                    return err("There was an error cropping the image.");
+                });
             }
         });
     } catch (e) {

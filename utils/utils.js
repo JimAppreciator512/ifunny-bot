@@ -65,3 +65,13 @@ export const requiredPermissions = [
     PermissionsBitField.Flags.SendMessages,
     PermissionsBitField.Flags.AttachFiles,
 ];
+
+export function getExportFormat(format) {
+    return (f => {
+        if (imageExportFormats.includes(f)) {
+            return f;
+        }
+        console.error(`There was an invalid image format specified, ${f}`);
+        return "png";
+    })(format);
+}
