@@ -86,12 +86,16 @@ client.on(Events.InteractionCreate, handler.InteractionCreate);
         );
 
         // The put method is used to fully refresh all commands in the guild with the current set
-        const data = await handler.Put(payload);
+	try {
+        	const data = await handler.Put(payload);
 
-        // more logging
-        console.log(
-            `Successfully reloaded ${data.length} application (/) commands.`
-        );
+        	// more logging
+        	console.log(
+        	    `Successfully reloaded ${data.length} application (/) commands.`
+        	);
+	} catch (e) {
+		console.error("There was an unexpected error: ", e.stack);
+	}
 
         // logging into discord
         client.login(config.token);

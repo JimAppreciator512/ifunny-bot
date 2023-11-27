@@ -3,7 +3,7 @@ import { Routes, REST } from "discord.js";
 import config from "./config.json" assert { type: "json" };
 import { isValidiFunnyLink, requiredPermissions } from "./utils/utils.js";
 import extractPost from "./utils/extractpost.js";
-import { pullServerConfig, pullChannels } from "./utils/db.js";
+import { pullServerConfig, pullChannels, sha1sum } from "./utils/db.js";
 
 function OnReady(client) {
     console.log(`Developer mode active, logged in as: ${client.user.tag}. Are you breaking shit?`);
@@ -15,8 +15,11 @@ function OnReady(client) {
 
 function OnMessageCreate(client) {
     return async message => {
-        // ignoring messages that aren't from the development server
-        if (message.guild.id !== config.guildId) return;
+	// to bullet proof my code
+	if (process.NODE_ENV === "dev") {
+        	// ignoring messages that aren't from the development server
+	        if (message.guild.id !== config.guildId) return;
+	}
 
         // don't react to the bot sending messages
         if (message.author.id === client.user.id) return;
@@ -30,44 +33,48 @@ function OnMessageCreate(client) {
         // querying the prisma db to see if this server has "globalEmbed" enabled
         const serverConfig = await pullServerConfig(message.guild.id);
 
+	console.log(serverConfig)
+
         // if global config is disabled, stop function
-        if (serverConfig && serverConfig.globalEmbed === false) {
-            // global embed is disabled, aborting
-            console.log(
-                `Server ${message.guild.id} has global embed disabled, checking for a saved channel.`
-            );
+        if (serverConfig) {
+		if (serverConfig.globalEmbed === false) {
+            		// global embed is disabled, aborting
+            		console.log(
+            		    `Server ${message.guild.id} has global embed disabled, checking for a saved channel.`
+            		);
 
-            // if the interaction was in a saved channel, allow
-            const channels = await pullChannels(message.guild.id);
+            		// if the interaction was in a saved channel, allow
+            		const channels = await pullChannels(message.guild.id);
 
-            // there are no saved channels
-            if (channels && channels.length === 0) {
-                console.log(
-                    `There are no saved channels for ${message.guild.id}, aborting auto-embed.`
-                );
-                return;
-            }
+            		// there are no saved channels
+            		if (channels && channels.length === 0) {
+            		    console.log(
+            		        `There are no saved channels for ${message.guild.id}, aborting auto-embed.`
+            		    );
+            		    return;
+            		}
 
-            // there are one or more saved channels
-            console.log(
-                `${message.guild.id} has one or more saved channels, checking if the interaction's channel is valid.`
-            );
+            		// there are one or more saved channels
+            		console.log(
+            		    `${message.guild.id} has one or more saved channels, checking if the interaction's channel is valid.`
+            		);
 
-            if (
-                channels.filter(obj => {
-                    return obj.channel === message.channel.id;
-                }).length === 0
-            ) {
-                console.log(
-                    `The message was sent in a channel that doesn't have auto-embed enabled, aborting.`
-                );
-                return;
-            }
+            		if (
+            		    channels.filter(obj => {
+            		        return obj.channel === message.channel.id;
+            		    }).length === 0
+            		) {
+            		    console.log(
+            		        `The message was sent in a channel that doesn't have auto-embed enabled, aborting.`
+            		    );
+            		    return;
+            		}
 
-            // logging
-            console.log(
-                `Allowing auto-embed in channel ${message.channel.id}.`
-            );
+            		// logging
+            		console.log(
+            		    `Allowing auto-embed in channel ${message.channel.id}.`
+            		);
+		}
         } else {
             console.error("WARNING: Could not pull server information during auto-embed, embedding anyways.");
         }

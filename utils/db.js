@@ -147,7 +147,7 @@ async function pullServerConfig(id) {
         const result = await insertServerToDB(id);
 
         // if valid insertion
-        if (result && result.server === undefined) {
+        if (result && result.server === server_hash) {
             console.log(
                 `Successfully added server ${server_hash} to the "Config" table.`
             );
