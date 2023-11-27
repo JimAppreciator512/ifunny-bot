@@ -29,7 +29,7 @@ async function configAutoEmbed(interaction) {
     }
 
     // user wants to display the current setting
-    if (!data) {
+    if (data === undefined) {
         // responding to caller
         return await interaction.reply({
             ephemeral: true,
