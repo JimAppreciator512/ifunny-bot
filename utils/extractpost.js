@@ -86,7 +86,8 @@ async function extractPost(content, resolve, err, format) {
             // if content is meme, guess the selector
             const [__datatype, contentUrl] = (d => {
                 // storing the element we want to scrape the source of the video/image/gif from
-                var __el, sel, attr, __d;
+                var __el, sel, attr;
+                var __d = d;
 
                 /// if not meme, then directly assign and not guess
                 if (d !== "meme") {
