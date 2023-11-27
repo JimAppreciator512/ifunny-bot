@@ -9,9 +9,10 @@ import DevelopmentHandler from "./env.dev.js";
 import ProductionHandler from "./env.prod.js";
 import { Client, GatewayIntentBits, Events } from "discord.js";
 import config from "./config.json" assert { type: "json" };
+import Icon from "./commands/icon.js";
 
 // creating a list of valid commands used by the bot
-const Commands = [Post, User, About, Help, Hash, Config];
+const Commands = [Post, User, About, Help, Hash, Config, Icon];
 
 // Create a new client instance
 const client = new Client({

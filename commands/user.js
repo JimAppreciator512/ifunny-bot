@@ -10,13 +10,16 @@ async function user(interaction) {
 
     // getting the user to search for
     /** @type String */
-    const username = sanitizeUsername(interaction.options.getString("name"));
+    const raw_username = interaction.options.getString("name");
 
     // logging
-    console.log(`Looking user "${username}"...`);
+    console.log(`Looking user "${raw_username}"...`);
 
     // forming the URL of the potential user
-    const url = `https://ifunny.co/user/${username}`;
+    const url = `https://ifunny.co/user/${raw_username}`;
+
+    /** @type String */
+    const username = sanitizeUsername(raw_username);
 
     /// posting to the URL
 
