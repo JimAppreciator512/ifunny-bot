@@ -1,4 +1,6 @@
 config.json
 *.db
 __pycache__/
+*.pyc
+venv/
 
