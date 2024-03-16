@@ -1,38 +1,43 @@
-from ..types.post_type import PostType
+from ifunnybot.types.post_type import PostType
 
 class Post(object):
-    def __init__(self, likes:int = 0, comments:int = 0, op:str = "",
-                 url:str = "", post_type: PostType = PostType.OTHER, content_url: str = ""):
+    def __init__(self, likes: str = "", comments: str = "", op: str = "",
+                 url: str = "", post_type:  PostType = PostType.MEME,
+                 content_url:  str = "", icon_url: str = ""): 
 
         # saving fields
-        self._likes: int = likes
-        self._comments: int = comments
+        self._likes: str = likes
+        self._comments: str = comments
         self._op: str = op
         self._url: str = url
         self._post_type: PostType = post_type
         self._content_url: str = content_url
+        self._icon_url: str = icon_url
 
         return
 
+    def __repr__(self) -> str:
+        return f"<{self._post_type}@{self._url} by {self._op}, likes: {self._likes}, comments: {self._comments}>"
+
     @property
-    def likes(self) -> int:
+    def likes(self) -> str:
         """Returns the number of likes the post has at the time that the post was retrieved."""
         return self._likes
 
     @likes.setter
-    def likes(self, value: int):
+    def likes(self, value: str):
         """Sets the number of likes to `value`"""
-        self._likes = int(value)
+        self._likes = str(value)
 
     @property
-    def comments(self) -> int:
+    def comments(self) -> str:
         """Returns the number of comments the post has at the time that the post was retrieved."""
         return self._comments
 
     @comments.setter
-    def comments(self, value: int):
+    def comments(self, value: str):
         """Sets the number of comments to `value`"""
-        self._comments = int(value)
+        self._comments = str(value)
 
     @property
     def op(self) -> str:
@@ -73,4 +78,14 @@ class Post(object):
     def content_url(self, value: str):
         """Sets the number of content_url to `value`"""
         self._content_url = str(value)
+
+    @property
+    def icon_url(self) -> str:
+        """Returns the icon_url of post."""
+        return self._icon_url
+
+    @icon_url.setter
+    def icon_url(self, value: str):
+        """Sets the number of icon_url to `value`"""
+        self._icon_url = str(value)
 

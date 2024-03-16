@@ -5,7 +5,7 @@ The main file for the bot.
 import logging
 import sys
 
-from core.bot import FunnyBot
+import ifunnybot
 
 import discord
 from discord import app_commands
@@ -26,7 +26,7 @@ logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler(sys.stdout))
 
 # creating the client
-client = FunnyBot(intents=intents, logger=logger, guildId=config["GUILDID"])
+client = ifunnybot.FunnyBot(intents=intents, logger=logger, guildId=config["GUILDID"])
 
 @client.event
 async def on_ready():
@@ -46,5 +46,5 @@ async def ping(interaction: discord.Interaction):
 
 
 # main loop
-client.run(config["TOKEN"])
+#client.run(config["TOKEN"])
 
