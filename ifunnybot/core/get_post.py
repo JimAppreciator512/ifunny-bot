@@ -1,26 +1,33 @@
 import requests
-from typing import Union
+from typing import Optional
 from bs4 import BeautifulSoup as soup
 
+from .logging import Logger
 from ifunnybot.data import Headers
 from ifunnybot.types import Post, PostType
 from ifunnybot.utils import get_datatype, html_selectors
 
-# TODO: refactor this to Optional[Post]?
-def get_post(url: str, _headers=Headers) -> Union[Post, str]:
+def get_post(url: str, _headers=Headers) -> Optional[Post]:
 
     # getting the post, assuming that it is a proper link
-    response = requests.get(url, headers=_headers, allow_redirects=False)
+    response = None
+    try:
+        response = requests.get(url, headers=_headers, allow_redirects=False)
+    except Exception as e:
+        Logger.error(f"There was an exception making a GET request to {url}: {e}")
+        return None
 
     # testing the response code
     if response.status_code != requests.codes.ok:
         # do something here
-        return f"There was an error making the HTTP request to {url}"
+        Logger.error(f"There was an error making the HTTP request to {url}")
+        return
 
     # transforming the response into something useable
     dom = soup(response.text, "html.parser")
     if not dom.css:
-        return f"There was an internal error with BeautifulSoup, cannot use CSS selectors"
+        Logger.fatal(f"There was an internal error with BeautifulSoup, cannot use CSS selectors")
+        return
 
     ## the response was OK, now scraping information
     info = Post()
@@ -32,8 +39,11 @@ def get_post(url: str, _headers=Headers) -> Union[Post, str]:
     datatype = get_datatype(url)
     if not datatype:
         # do something here
-        return f"Could not find any content at {url}."
-    print(f"Found {datatype} at {url}")
+        Logger.error(f"Could not find any content at {url}.")
+        return
+
+    # logging
+    Logger.info(f"Found {datatype} at {url}")
 
     # setting the data type of the post
     info.post_type = datatype
@@ -49,7 +59,9 @@ def get_post(url: str, _headers=Headers) -> Union[Post, str]:
         # using BeautifulSoup to get what I want
         element = dom.css.select(selector)
         if not element:
-            return f"Could not grab the content from {url}"
+            Logger.error(f"Could not grab the content from {url}")
+            return
+
         info.content_url = element[0].get(attribute)
     else:
         # need to iterate through all the selectors to find the proper
@@ -63,20 +75,25 @@ def get_post(url: str, _headers=Headers) -> Union[Post, str]:
             # using BeautifulSoup to get what I want
             element = dom.css.select(selector)
             if not element:
-                print(f"Post at {url} is not {_type}")
+                Logger.debug(f"Post at {url} is not {_type}")
                 continue
 
             
-            print(f"Post at {url} is {_type}")
+            # breaking early because we found the correct selector
+            Logger.debug(f"Post at {url} is {_type}")
             info.post_type = _type
             info.content_url = element[0].get(attribute)
+
             break
 
     ## scraping other info about the post
-    info.op = dom.css.select("div._9JPE > a.WiQc > span.IfB6")[0].text.replace(" ", "")
+    info.username = dom.css.select("div._9JPE > a.WiQc > span.IfB6")[0].text.replace(" ", "")
     info.icon_url = dom.css.select("div._9JPE > a.WiQc > img.dLxH")[0].get("data-src")
     info.likes = dom.css.select("div._9JPE > button.Cgfc > span.Y2eM > span")[0].text
     info.comments = dom.css.select("div._9JPE > button.Cgfc > span.Y2eM > span")[1].text
+
+    # logging
+    Logger.info(f"Retrieved from {url}: {info}")
 
     # returning the collected information
     return info

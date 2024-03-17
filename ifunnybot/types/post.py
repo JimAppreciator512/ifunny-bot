@@ -1,23 +1,21 @@
 from ifunnybot.types.post_type import PostType
 
 class Post(object):
-    def __init__(self, likes: str = "", comments: str = "", op: str = "",
+    def __init__(self, likes: str = "", comments: str = "", username: str = "",
                  url: str = "", post_type:  PostType = PostType.MEME,
                  content_url:  str = "", icon_url: str = ""): 
 
         # saving fields
         self._likes: str = likes
         self._comments: str = comments
-        self._op: str = op
+        self._username: str = username
         self._url: str = url
         self._post_type: PostType = post_type
         self._content_url: str = content_url
         self._icon_url: str = icon_url
 
-        return
-
     def __repr__(self) -> str:
-        return f"<{self._post_type}@{self._url} by {self._op}, likes: {self._likes}, comments: {self._comments}>"
+        return f"<Post: {self._post_type}@{self._url} by {self._username}, likes: {self._likes}, comments: {self._comments}>"
 
     @property
     def likes(self) -> str:
@@ -40,14 +38,14 @@ class Post(object):
         self._comments = str(value)
 
     @property
-    def op(self) -> str:
+    def username(self) -> str:
         """Returns the username of the poster."""
-        return self._op
+        return self._username
 
-    @op.setter
-    def op(self, value: str):
-        """Sets the number of op to `value`"""
-        self._op = str(value)
+    @username.setter
+    def username(self, value: str):
+        """Sets the number of username to `value`"""
+        self._username = str(value)
 
     @property
     def url(self) -> str:
