@@ -27,13 +27,13 @@ def get_profile(username: str, _headers=Headers) -> Optional[Profile]:
     if response.status_code != requests.codes.ok:
         # do something here
         Logger.error(f"No such user at {url} exists.")
-        return
+        return None
 
     # transforming the response into something useable
     dom = soup(response.text, "html.parser")
     if not dom.css:
         Logger.fatal(f"There was an internal error with BeautifulSoup, cannot use CSS selectors")
-        return
+        return None
 
     ## scraping information
 

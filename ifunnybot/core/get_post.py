@@ -3,9 +3,11 @@ from typing import Optional
 from bs4 import BeautifulSoup as soup
 
 from .logging import Logger
-from ifunnybot.data import Headers
-from ifunnybot.types import Post, PostType
-from ifunnybot.utils import get_datatype, html_selectors
+from ifunnybot.data.headers import Headers
+from ifunnybot.types.post import Post
+from ifunnybot.types.post_type import PostType
+from ifunnybot.utils.urls import get_datatype
+from ifunnybot.utils.html import html_selectors
 
 def get_post(url: str, _headers=Headers) -> Optional[Post]:
 
@@ -94,6 +96,13 @@ def get_post(url: str, _headers=Headers) -> Optional[Post]:
 
     # logging
     Logger.info(f"Retrieved from {url}: {info}")
+
+    # getting the content of the post
+    info.retrieve_content()
+
+    # if the post is an image, crop it
+    if info.post_type == PostType.PICTURE:
+        info.crop_watermark()
 
     # returning the collected information
     return info

@@ -1,4 +1,10 @@
+import io
+
+from PIL import Image, ImageOps
+
+from ifunnybot.core.logging import Logger
 from ifunnybot.types.post_type import PostType
+from ifunnybot.utils.image import retrieve_content
 
 class Post(object):
     def __init__(self, likes: str = "", comments: str = "", username: str = "",
@@ -13,9 +19,58 @@ class Post(object):
         self._post_type: PostType = post_type
         self._content_url: str = content_url
         self._icon_url: str = icon_url
+        self._content: io.BytesIO = io.BytesIO()
 
     def __repr__(self) -> str:
         return f"<Post: {self._post_type}@{self._url} by {self._username}, likes: {self._likes}, comments: {self._comments}>"
+
+    def retrieve_content(self):
+        """Retrieves the content located at `self.content_url`."""
+
+        # logging
+        Logger.info(f"Retrieving content from CDN: {self._content_url}")
+
+        # saving the response as a byte array
+        if (_buf := retrieve_content(self._content_url)):
+            self._content = _buf
+        else:
+            Logger.error(f"Failed to retrieve content from {self._content_url}.")
+
+    def crop_watermark(self):
+        """Removes the iFunny watermark from images."""
+
+        # logging
+        Logger.info(f"Cropping watermark.")
+
+        # checking the post type first
+        if self._post_type != PostType.PICTURE:
+            Logger.warn(f"Tried to crop something that wasn't an image: {self._post_type}")
+            return
+
+        # turning bytes into an image
+        image = Image.open(self._content)
+
+        # cropping & the image
+        cropped = ImageOps.crop(image, (0, 0, 0, 20))
+
+        # saving the image back into the bytes buffer
+        # I hate this hack
+        self._content.close()
+        del self._content
+        self._content = io.BytesIO()
+        cropped.save(self._content, format="PNG")
+
+        # cleanup
+        image.close()
+        cropped.close()
+        del image, cropped
+
+        # seeking back to the beginning because this fixes things
+        self._content.seek(0)
+
+    @property
+    def content(self) -> io.BytesIO:
+        return self._content
 
     @property
     def likes(self) -> str:

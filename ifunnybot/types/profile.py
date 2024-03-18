@@ -1,3 +1,8 @@
+import io
+from typing import Optional
+
+from ifunnybot.utils import retrieve_content, convert_image_to_png
+
 class Profile(object):
     def __init__(self, username: str = "", icon_url: str = "", subscribers: str = "",
                  subscriptions: str = "", features: str = "", description: str = ""): 
@@ -9,10 +14,16 @@ class Profile(object):
         self._subscriptions: str = subscriptions
         self._features: str = features
         self._description: str = description
-        self._profile_url: str = ""
+        self._profile_url: str = f"https://ifunny.co/user/{self._username}"
 
     def __repr__(self) -> str:
         return f"<Profile: {self._username}, {self._subscribers} subscribers, {self._subscriptions} subscriptions, {self._features} features>"
+
+    def retrieve_icon(self) -> Optional[io.BytesIO]:
+        """Retrieves the icon of the user."""
+        if not (_bytes := retrieve_content(self._icon_url)):
+            return None
+        return convert_image_to_png(_bytes)
 
     @property
     def username(self) -> str:

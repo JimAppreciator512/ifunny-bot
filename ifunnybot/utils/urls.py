@@ -1,7 +1,7 @@
 import re
 from typing import Optional
 
-from ifunnybot.types.post_type import PostType
+from ..types.post_type import PostType
 
 # regular expressions
 ifunny_url = r"(https:\/\/ifunny.co\/(picture|video|gif|meme)\/(.*){1,20}(\?.*){0,20})"

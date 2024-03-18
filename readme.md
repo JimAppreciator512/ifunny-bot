@@ -15,24 +15,20 @@ So I made this bot with this main feature in mind and a couple other features.
 
 > This bot can run on x86, x86-64 and arm (I've only run this on a raspberry pi 4)
 
-This bot requires `npm` and `node.js` to run.
+This bot was written in Python and is containerized in Docker.
 
-1. Clone the repository to your chosen location.
-1. Run `npm install` to install all the packages.
-1. After npm finishes, then run either `npm run dev` or `npm start` to start the bot.
+### Bot Configuration
 
 You will also need your own bot token along with the bot's client ID
-which means you will need to create a `config.json` file to store it.
+which means you will need to create a `.env` file to store it.
 Finally, for development purposes, you should create a private (I don't really care if it's public) server to
 test the bot on.
 See example below:
 
-```json
-{
-	"token": "your token goes here",
-	"clientId": "your application id goes here"
-	"guildId": "the id of your development server goes here"
-}
+```env
+TOKEN=YOUR_BOT_TOKEN
+CLIENTID=YOUR_APPLICATION_ID
+GUILDID=YOUR_DEV_GUILD_ID
 ```
 
 ## Server Configuration
