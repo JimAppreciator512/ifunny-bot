@@ -29,19 +29,3 @@ def create_filename(post: "Post") -> Optional[str]:
 
     return match.group(1)
 
-def retrieve_content(url: str) -> Optional[io.BytesIO]:
-    # getting the post, assuming that it is a proper link
-    response = None
-    try:
-        response = requests.get(url, allow_redirects=False)
-    except Exception:
-        return None
-
-    buffer = io.BytesIO(response.content)
-
-    # logging again
-    Logger.debug(f"Response size: {len(response.content)}, saved size: {buffer.getbuffer().nbytes}")
-
-    # saving the response as a byte array
-    return buffer 
-

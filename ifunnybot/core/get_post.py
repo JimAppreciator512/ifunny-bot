@@ -2,7 +2,7 @@ import requests
 from typing import Optional
 from bs4 import BeautifulSoup as soup
 
-from .logging import Logger
+from ifunnybot.core.logging import Logger
 from ifunnybot.data.headers import Headers
 from ifunnybot.types.post import Post
 from ifunnybot.types.post_type import PostType

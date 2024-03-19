@@ -1,7 +1,7 @@
 import io
 from typing import Optional
 
-from ifunnybot.utils import retrieve_content, convert_image_to_png
+from ifunnybot.utils.image import retrieve_content, convert_image_to_png
 
 class Profile(object):
     def __init__(self, username: str = "", icon_url: str = "", subscribers: str = "",
