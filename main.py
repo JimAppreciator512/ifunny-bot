@@ -2,6 +2,8 @@
 The main file for the bot.
 """
 
+import sys
+
 import discord
 from discord import app_commands
 from dotenv import dotenv_values
@@ -15,16 +17,35 @@ config = {
     **dotenv_values(".env")
 }
 
+# development server ID
+development_server = 0
+
+# checking the .env values
+if not config["GUILDID"]:
+    Logger.fatal("Couldn't start bot, missing 'GUILDID' from .env values.")
+    sys.exit(1)
+else:
+    try:
+        development_server = int(config["GUILDID"])
+    except:
+        development_server = 0
+
+if not config["TOKEN"]:
+    Logger.fatal("Couldn't start bot, missing 'TOKEN' from .env values.")
+    sys.exit(1)
+
+
 # intents
 intents = discord.Intents.default()
 intents.message_content = True
 
 # creating the client
-client = FunnyBot(intents=intents, logger=Logger, guildId=config["GUILDID"])
+client = FunnyBot(intents=intents, logger=Logger, guildId=development_server)
 
 @client.event
 async def on_ready():
     Logger.info(f"Logged in as: '{client.user}'")
+    await client.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="Down for maintenance."), status=discord.Status.do_not_disturb)
 
 @client.event
 async def on_message(message: discord.message.Message):
