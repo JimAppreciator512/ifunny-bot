@@ -9,6 +9,7 @@ COPY . /app/
 
 # building
 RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
+RUN mkdir -p /app/logs
 
 # running the app
 CMD ["python3", "main.py"]

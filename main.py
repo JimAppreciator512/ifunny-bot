@@ -47,6 +47,7 @@ async def on_ready():
     Logger.info(f"Logged in as: '{client.user}'")
     await client.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="Down for maintenance."), status=discord.Status.do_not_disturb)
 
+
 @client.event
 async def on_message(message: discord.message.Message):
     # guard clauses
@@ -59,44 +60,49 @@ async def on_message(message: discord.message.Message):
         return
 
     # testing if the interaction contains an iFunny link
-    if not (url := funny.get_url(message.content)):
-        Logger.info(f"Received an improper link in `message.content`: {message.content}")
+    if not (urls := funny.get_url(message.content)):
         return
+
+    # there might be multiple urls
+    for url in urls:
+        # got a valid link, getting the post information
+        if not (post := funny.get_post(url)):
+            Logger.error(f"There was an error extracting information from {message.content}")
+            await message.reply(content=f"There was an internal error embedding the post from {message.content}", silent=True)
+
+            # looping
+            continue
     
-    # got a valid link, getting the post information
-    if not (post := funny.get_post(url)):
-        Logger.error(f"There was an error extracting information from {message.content}")
-        return await message.reply(content=f"There was an internal error embedding the post from {message.content}", silent=True)
+        # creating an embed
+        embed = discord.Embed(title=f"Post by {sanitize_discord(post.username)}",
+                              url=post.url,
+                              description=f"{post.likes} likes.\t{post.comments} comments.")
+        embed.set_author(name="", icon_url=post.icon_url)
 
-    # creating an embed
-    embed = discord.Embed(title=f"Post by {sanitize_discord(post.username)}",
-                          url=post.url,
-                          description=f"{post.likes} likes.\t{post.comments} comments.")
-    embed.set_author(name="", icon_url=post.icon_url)
+        # create the filename
+        filename = create_filename(post)
+    
+        # forming the file extension
+        extension = ""
+        match post.post_type:
+            case funny.PostType.PICTURE:
+                extension = "png"
+            case funny.PostType.VIDEO:
+                extension = "mp4"
+            case funny.PostType.GIF:
+                extension = "gif"
+            case _:
+                # this should never happen
+                Logger.error(f"Tried to make extension of invalid post type: {post.post_type}")
+    
+        # creating the file object
+        file = discord.File(post.content, filename=f"{filename}.{extension}")
+    
+        # logging
+        Logger.info(f"Replying to interaction with '{filename}.{extension}'")
+            
+        await message.reply(embed=embed, file=file)
 
-    # create the filename
-    filename = create_filename(post)
-
-    # forming the file extension
-    extension = ""
-    match post.post_type:
-        case funny.PostType.PICTURE:
-            extension = "png"
-        case funny.PostType.VIDEO:
-            extension = "mp4"
-        case funny.PostType.GIF:
-            extension = "gif"
-        case _:
-            # this should never happen
-            Logger.error(f"Tried to make extension of invalid post type: {post.post_type}")
-
-    # creating the file object
-    file = discord.File(post.content, filename=f"{filename}.{extension}")
-
-    # logging
-    Logger.info(f"Replying to interaction with '{filename}.{extension}'")
-        
-    return await message.reply(embed=embed, file=file)
 
 @client.tree.command(name="icon", description="Retrieves a user's profile picture. (case insensitive)")
 @app_commands.describe(user="The user's name.")
@@ -148,9 +154,13 @@ async def post(interaction: discord.Interaction, link: str):
 
     # testing if the interaction contains an iFunny link
     if not (url := funny.get_url(link)):
+        # logging & returning
         Logger.info(f"Received an improper link: {link}")
         return await interaction.followup.send(content=f"The url {link}, isn't a proper iFunny url.")
     
+    # simple hack, my precious
+    url = url[0]
+
     # got a valid link, getting the post information
     if not (post := funny.get_post(url)):
         Logger.error(f"There was an error extracting information from {link}")
@@ -185,6 +195,7 @@ async def post(interaction: discord.Interaction, link: str):
     Logger.info(f"Replying to interaction with '{filename}.{extension}'")
         
     return await interaction.followup.send(embed=embed, file=file)
+
 
 # main loop
 client.run(config["TOKEN"])
