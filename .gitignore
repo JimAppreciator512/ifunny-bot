@@ -1,6 +1,10 @@
-node_modules
-package-lock.json
 config.json
-*.core
 *.db
+__pycache__/
+*.pyc
+venv/
+.env
+*.pickle
+*.log
+logs/
 
