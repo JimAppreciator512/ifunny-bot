@@ -58,12 +58,11 @@ def get_post(url: str, _headers=Headers) -> Optional[Post]:
         # getting selectors & attributes
         selector, attribute = html_selectors[info.post_type]
 
-        Logger.debug(dom)
-
         # using BeautifulSoup to get what I want
         element = dom.css.select(selector)
         if not element:
             Logger.error(f"Could not grab the content from {url}")
+            Logger.error(f"HTML: {dom}")
             return
 
         info.content_url = element[0].get(attribute)
