@@ -2,6 +2,7 @@
 The main file for the bot.
 """
 
+import os
 import sys
 
 import discord
@@ -14,6 +15,7 @@ from ifunnybot.utils import sanitize_discord, create_filename
 
 # loading in config values
 config = {
+    **os.environ,
     **dotenv_values(".env")
 }
 
@@ -21,15 +23,15 @@ config = {
 development_server = 0
 
 # checking the .env values
-#if not config["GUILDID"]:
-#    Logger.fatal("Couldn't start bot, missing 'GUILDID' from .env values.")
-#    sys.exit(1)
-#else:
-#    try:
-#        development_server = int(config["GUILDID"])
-#    except:
-#        development_server = 0
+Logger.debug("Checking for GUILDID to be set, if so, start in development mode.")
+try:
+    development_server = int(config["GUILDID"])
+    Logger.debug("GUILDID is set, starting in development mode.")
+except:
+    development_server = 0
+    Logger.debug("GUILDID not set, starting in production.")
 
+# checking for the token
 if not config["TOKEN"]:
     Logger.fatal("Couldn't start bot, missing 'TOKEN' from .env values.")
     sys.exit(1)
@@ -45,7 +47,18 @@ client = FunnyBot(intents=intents, logger=Logger, guildId=development_server)
 @client.event
 async def on_ready():
     Logger.info(f"Logged in as: '{client.user}'")
-    await client.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="iFunny Bot v2.0"), status=discord.Status.online)
+
+    # presence message
+    _status, _tag = None, None
+    if development_server != 0:
+        # production
+        _status = discord.Status.online
+        _tag = "iFunny Bot v2.0"
+    else:
+        _status = discord.Status.do_not_disturb
+        _tag = "Down for maintenance."
+
+    await client.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name=_tag), status=_status)
 
 
 @client.event
@@ -55,9 +68,18 @@ async def on_message(message: discord.message.Message):
         return
     if message.author.bot: # not replying to any messages from other bots
         return
+    if not message.guild: # the message didn't come from a server
+        return
+
     # ignoring messages that do not have an ifunny link
     if not funny.has_url(message.content):
         return
+    
+    # debug mode shit
+    if development_server != 0:
+        if message.guild.id != development_server:
+            # ignoring commands when in development mode
+            return
 
     # testing if the interaction contains an iFunny link
     if not (urls := funny.get_url(message.content)):

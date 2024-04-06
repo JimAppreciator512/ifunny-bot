@@ -7,4 +7,6 @@ venv/
 *.pickle
 *.log
 logs/
+dev.sh
+*.bak
 

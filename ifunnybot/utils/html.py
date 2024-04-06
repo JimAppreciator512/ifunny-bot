@@ -4,6 +4,6 @@ from ifunnybot.types.post_type import PostType
 html_selectors = {
         PostType.PICTURE: ["div._3ZEF > img", "src"],
         PostType.VIDEO: ["div._3ZEF > div > video", "data-src"],
-        PostType.GIF: ['head > link[as="image"]', "href"]
+        PostType.GIF: ['meta > link[as="image"]', "href"]
         }
 

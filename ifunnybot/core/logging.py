@@ -23,8 +23,8 @@ fmt = logging.Formatter("%(asctime)s - %(name)s - %(levelname)-7s: %(message)s")
 # stdout handler
 std = logging.StreamHandler(sys.stdout)
 std.setFormatter(fmt)
-std.setLevel(logging.ERROR)
-std.addFilter(HighPassFilter(logging.INFO))
+std.setLevel(logging.DEBUG)
+std.addFilter(HighPassFilter(logging.DEBUG))
 
 # file handler
 fd = logging.FileHandler(filename, mode="w")

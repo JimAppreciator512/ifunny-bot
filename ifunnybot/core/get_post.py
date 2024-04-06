@@ -58,6 +58,8 @@ def get_post(url: str, _headers=Headers) -> Optional[Post]:
         # getting selectors & attributes
         selector, attribute = html_selectors[info.post_type]
 
+        Logger.debug(dom)
+
         # using BeautifulSoup to get what I want
         element = dom.css.select(selector)
         if not element:
