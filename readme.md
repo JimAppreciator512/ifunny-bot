@@ -28,10 +28,9 @@ See example below:
 ```env
 TOKEN=YOUR_BOT_TOKEN
 CLIENTID=YOUR_APPLICATION_ID
-GUILDID=YOUR_DEV_GUILD_ID
 ```
 
-## Server Configuration
+## Server Configuration (CURRENTLY UNIMPLEMENTED IN THE LIVE REWRITE)
 
 There are several commands to control how the bot behaves on your server:
 
