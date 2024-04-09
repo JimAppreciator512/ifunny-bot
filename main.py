@@ -50,7 +50,7 @@ async def on_ready():
 
     # presence message
     _status, _tag = None, None
-    if development_server != 0:
+    if development_server == 0:
         # production
         _status = discord.Status.online
         _tag = "iFunny Bot v2.0"
