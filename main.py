@@ -134,14 +134,19 @@ async def icon(interaction: discord.Interaction, user: str):
 
     # getting the user's profile
     if not (profile := funny.get_profile(user)):
+        Logger.info(f"Could not find user '{user}' (although they may exist)")
         return await interaction.followup.send(content=f"Could not find user '{user}' (although they may exist)")
     else:
         # getting the icon of the user
         if not (image := profile.retrieve_icon()):
+            Logger.info(f"An error occurred getting '{user}'s profile picture.")
             return await interaction.followup.send(content=f"An error occurred getting '{user}'s profile picture.")
 
         # user has icon, returning it
         file = discord.File(image, filename=f"{profile.username}_pfp.png")
+
+        # logging
+        Logger.info(f"Replying to interaction with file: {profile.username}_pfp.png")
 
         # returning the image
         return await interaction.followup.send(file=file)
@@ -154,6 +159,7 @@ async def user(interaction: discord.Interaction, user: str):
 
     # getting the user's profile
     if not (profile := funny.get_profile(user)):
+        Logger.info(f"Could not find user '{user}' (although they may exist)")
         return await interaction.followup.send(content=f"Could not find user '{user}' (although they may exist)")
     else:
         # creating an embed for the profile
@@ -165,6 +171,10 @@ async def user(interaction: discord.Interaction, user: str):
         embed.set_thumbnail(url=profile.icon_url)
         embed.set_footer(text=f"{profile.subscribers} subscribers, {profile.subscriptions} subscriptions, {profile.features} features")
 
+        # logging
+        Logger.info(f"Replying to interaction with embed about: {profile}")
+
+        # replying to interaction
         return await interaction.followup.send(embed=embed)
     
 

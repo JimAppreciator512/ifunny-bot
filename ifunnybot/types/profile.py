@@ -1,7 +1,8 @@
 import io
 from typing import Optional
 
-from ifunnybot.utils.image import retrieve_content, convert_image_to_png
+from ifunnybot.core.logging import Logger
+from ifunnybot.utils.content import retrieve_content, convert_image_to_png
 
 class Profile(object):
     def __init__(self, username: str = "", icon_url: str = "", subscribers: str = "",
@@ -22,6 +23,7 @@ class Profile(object):
     def retrieve_icon(self) -> Optional[io.BytesIO]:
         """Retrieves the icon of the user."""
         if not (_bytes := retrieve_content(self._icon_url)):
+            Logger.error(f"Couldn't retrieve the icon of user {self}")
             return None
         return convert_image_to_png(_bytes)
 

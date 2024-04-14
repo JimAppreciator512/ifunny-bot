@@ -1,10 +1,5 @@
 import re
-import io
 from typing import Optional, TYPE_CHECKING
-
-import requests
-
-from ifunnybot.core.logging import Logger
 
 # dear fucking God never remove this
 if TYPE_CHECKING:

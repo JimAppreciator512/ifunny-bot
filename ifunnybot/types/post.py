@@ -1,10 +1,10 @@
 import io
 
-from PIL import Image, ImageOps
+from PIL import Image
 
 from ifunnybot.core.logging import Logger
 from ifunnybot.types.post_type import PostType
-from ifunnybot.utils.image import retrieve_content
+from ifunnybot.utils.content import retrieve_content
 
 class Post(object):
     def __init__(self, likes: str = "", comments: str = "", username: str = "",
@@ -35,6 +35,38 @@ class Post(object):
             self._content = _buf
         else:
             Logger.error(f"Failed to retrieve content from {self._content_url}.")
+            return
+        
+        # checking the data type of the image
+        self.check_datatype()
+
+    def check_datatype(self):
+        """
+        This function checks whether or not the content requested from iFunny
+        is actually what it says it is i.e., a gif is a gif and not an mp4.
+
+        If the function finds that the datatype is incorrect, as of now, it will
+        only change the internal `self._post_type` enum to match and NOT convert.
+        """
+
+        # checking if we actually have something to analyze
+        if not self._content:
+            Logger.error("Tried to analyze content of non-existant byte-array")
+            return
+
+        # checking type
+        match self._post_type:
+            case PostType.PICTURE:
+                try:
+                    Image.open(self._content)
+                except Exception:
+                    Logger.warn(f"The content from {self._content_url} isn't actually an image.")
+            case PostType.GIF:
+                pass
+            case PostType.VIDEO:
+                pass
+
+        # updating type
 
     def crop_watermark(self):
         """Removes the iFunny watermark from images."""
