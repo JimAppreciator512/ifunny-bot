@@ -2,15 +2,19 @@ import io
 from typing import Optional
 
 import requests
-from PIL import Image
+import pyfsig
+from PIL import Image, ImageOps
 
 from ifunnybot.core.logging import Logger
+from ifunnybot.types.response import Response
+from ifunnybot.data.signatures import IFUNNY_SIGS
 
-# magic bytes for confirming file types
-WEBM_MAGIC_BYTES = ['\x1a', '\x45', '\xdf']
-GIF_MAGIC_BYTES = ['\x47', '\x49', '\x46']
 
-def retrieve_content(url: str) -> Optional[io.BytesIO]:
+def retrieve_content(url: str) -> Optional[Response]:
+    """
+    Grabs the content from the iFunny CDN i.e., videos, images and gifs.
+    """
+
     # getting the post, assuming that it is a proper link
     response = None
     try:
@@ -20,9 +24,6 @@ def retrieve_content(url: str) -> Optional[io.BytesIO]:
         Logger.error(f"Failed to retrieve content from {url}, most likely no internet connection or a malformed url.")
         return None
 
-    # logging
-    Logger.debug(f"Response from {url}: {response.reason}.")
-
     # checking if we actually have a response
     if not response:
         Logger.error(f"Did not receive a response from {url}.")
@@ -31,25 +32,63 @@ def retrieve_content(url: str) -> Optional[io.BytesIO]:
         Logger.error(f"Response from {url} does not have a content body, aborting.")
         return None
 
-    # casting response into a byte array
-    buffer = io.BytesIO(response.content)
+    # looking at the file type from the header
+    sig = None
+    sigs = pyfsig.find_matches_for_file_header(response.content, signatures=IFUNNY_SIGS)
+
+    # checking the number of signatures
+    match len(sigs):
+        case 0:
+            Logger.warn(f"pyfsig failed to determine the type of the file.")
+        case 1:
+            Logger.info(f"Signature of the file: {sigs[0]}")
+            sig = sigs[0]
+        case _:
+            Logger.warn(f"Error discerning the file signature from the response, number of signatures: {len(sigs)}")
+            Logger.warn(f"Picking the first signature: {sigs}")
+            sig = sigs[0]
+
+    # creating new Response object
+    resp = Response(io.BytesIO(response.content), url, sig, response)
 
     # logging
-    Logger.debug(f"Response size: {len(response.content)}, saved size: {buffer.getbuffer().nbytes}")
+    Logger.debug(resp)
 
-    # saving the response as a byte array
-    return buffer 
+    # returning the response object
+    return resp
 
-def convert_image_to_png(_bytes: io.BytesIO) -> io.BytesIO:
+
+def crop_convert(_bytes: io.BytesIO, crop=False, format="PNG") -> io.BytesIO:
+    """
+    Converts a byte stream of type `io.BytesIO` to the specified format using PIL,
+    also crops the bottom 20 pixels out of the image to remove the dreaded iFunny
+    watermark.
+
+    This function does not check whether or not `_bytes` is an actual image,
+    if you try to pass in something that isn't an image, you'll most likely get an
+    error.
+    """
+
     # new buffer
     nbuf = io.BytesIO()
 
     # turning bytes into an image
     _image = Image.open(_bytes)
-    _image.save(nbuf, format="PNG")
+    
+    # checking the file type
+    if not _image.format:
+        Logger.warn(f"PIL could not discern what file type the image is.")
+
+    # cropping & the image
+    if crop:
+        _image = ImageOps.crop(_image, (0, 0, 0, 20))
+        Logger.info("Cropped watermark from image.")
+
+    # converting the image
+    _image.save(nbuf, format=format)
 
     # logging
-    Logger.debug(f"Converted '{_image.format}' to 'PNG'.")
+    Logger.info(f"Converted '{_image.format}' to 'PNG'.")
 
     # cleanup
     _bytes.close()

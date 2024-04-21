@@ -1,8 +1,12 @@
+"""
+This file contains an object representing a profile from iFunny.
+"""
+
 import io
 from typing import Optional
 
 from ifunnybot.core.logging import Logger
-from ifunnybot.utils.content import retrieve_content, convert_image_to_png
+from ifunnybot.utils.content import retrieve_content, crop_convert
 
 class Profile(object):
     def __init__(self, username: str = "", icon_url: str = "", subscribers: str = "",
@@ -18,14 +22,14 @@ class Profile(object):
         self._profile_url: str = f"https://ifunny.co/user/{self._username}"
 
     def __repr__(self) -> str:
-        return f"<Profile: {self._username}, {self._subscribers} subscribers, {self._subscriptions} subscriptions, {self._features} features>"
+        return f"<Profile: {self._username}, {self._subscribers} subscribers, {self._features} features>"
 
     def retrieve_icon(self) -> Optional[io.BytesIO]:
         """Retrieves the icon of the user."""
-        if not (_bytes := retrieve_content(self._icon_url)):
+        if not (resp := retrieve_content(self._icon_url)):
             Logger.error(f"Couldn't retrieve the icon of user {self}")
             return None
-        return convert_image_to_png(_bytes)
+        return crop_convert(resp.bytes, crop=False)
 
     @property
     def username(self) -> str:

@@ -19,22 +19,35 @@ config = {
     **dotenv_values(".env")
 }
 
-# development server ID
-development_server = 0
+# testing if in dev mode
+DEV_MODE = False
 
 # checking the .env values
-Logger.debug("Checking for GUILDID to be set, if so, start in development mode.")
+Logger.debug("Checking for DEV to be set, if so, start in development mode.")
 try:
-    development_server = int(config["GUILDID"])
-    Logger.debug("GUILDID is set, starting in development mode.")
+    DEV_MODE = bool(config["DEV"])
+    Logger.debug("DEV is set, starting in development mode.")
 except:
-    development_server = 0
-    Logger.debug("GUILDID not set, starting in production.")
+    DEV_MODE = 0
+    Logger.debug("DEV not set, starting in production.")
 
 # checking for the token
+Logger.info("Checking for TOKEN.")
 if not config["TOKEN"]:
     Logger.fatal("Couldn't start bot, missing 'TOKEN' from .env values.")
     sys.exit(1)
+Logger.info("TOKEN is set.")
+
+# checking for the development server ID
+if not config["GUILDID"] and DEV_MODE:
+    Logger.warn("GUILDID is not set, development mode will not work correctly.")
+
+# checking if the development server is an integer (it should be)
+try:
+    int(config["GUILDID"])
+except Exception:
+    Logger.fatal("Could not cast GUILDID to an integer, aborting program")
+    sys.exit(2)
 
 
 # intents
@@ -42,7 +55,8 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 # creating the client
-client = FunnyBot(intents=intents, logger=Logger, guildId=development_server)
+client = FunnyBot(intents=intents, logger=Logger, guildId=int(config["GUILDID"]))
+
 
 @client.event
 async def on_ready():
@@ -50,13 +64,14 @@ async def on_ready():
 
     # presence message
     _status, _tag = None, None
-    if development_server == 0:
+    if DEV_MODE:
+        # development mode
+        _status = discord.Status.do_not_disturb
+        _tag = "Down for maintenance."
+    else:
         # production
         _status = discord.Status.online
         _tag = "iFunny Bot v2.0"
-    else:
-        _status = discord.Status.do_not_disturb
-        _tag = "Down for maintenance."
 
     await client.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name=_tag), status=_status)
 
@@ -76,8 +91,8 @@ async def on_message(message: discord.message.Message):
         return
     
     # debug mode shit
-    if development_server != 0:
-        if message.guild.id != development_server:
+    if DEV_MODE:
+        if message.guild.id != int(config["GUILDID"]):
             # ignoring commands when in development mode
             return
 
