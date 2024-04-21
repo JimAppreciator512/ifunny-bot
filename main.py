@@ -19,35 +19,38 @@ config = {
     **dotenv_values(".env")
 }
 
-# testing if in dev mode
+# vars
 DEV_MODE = False
+DEV_SERVER = 0
 
 # checking the .env values
-Logger.debug("Checking for DEV to be set, if so, start in development mode.")
+Logger.info("Checking for DEV to be set, if so, start in development mode.")
 try:
     DEV_MODE = bool(config["DEV"])
-    Logger.debug("DEV is set, starting in development mode.")
+    Logger.info("DEV is set, starting in development mode.")
 except:
-    DEV_MODE = 0
-    Logger.debug("DEV not set, starting in production.")
+    Logger.info("DEV not set, starting in production.")
+
+
+# development mode checks
+if DEV_MODE:
+    # checking for the development server id
+    if not config["GUILDID"]:
+        Logger.warn(f"The bot is currently running in development mode but the ID of the development server is not set, development mode won't work correctly.")
+    else:
+        # checking if the development server is an integer (it should be)
+        try:
+            DEV_SERVER = int(config["GUILDID"])
+        except Exception:
+            Logger.fatal("Could not cast GUILDID to an integer, development mode won't work correctly.")
+
 
 # checking for the token
-Logger.info("Checking for TOKEN.")
+Logger.info("Checking for TOKEN...")
 if not config["TOKEN"]:
     Logger.fatal("Couldn't start bot, missing 'TOKEN' from .env values.")
     sys.exit(1)
 Logger.info("TOKEN is set.")
-
-# checking for the development server ID
-if not config["GUILDID"] and DEV_MODE:
-    Logger.warn("GUILDID is not set, development mode will not work correctly.")
-
-# checking if the development server is an integer (it should be)
-try:
-    int(config["GUILDID"])
-except Exception:
-    Logger.fatal("Could not cast GUILDID to an integer, aborting program")
-    sys.exit(2)
 
 
 # intents
@@ -55,7 +58,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 # creating the client
-client = FunnyBot(intents=intents, logger=Logger, guildId=int(config["GUILDID"]))
+client = FunnyBot(intents=intents, logger=Logger, guildId=DEV_SERVER)
 
 
 @client.event
@@ -165,6 +168,7 @@ async def icon(interaction: discord.Interaction, user: str):
 
         # returning the image
         return await interaction.followup.send(file=file)
+
 
 @client.tree.command(name="user", description="Embeds the link to a user's profile. (case insensitive)")
 @app_commands.describe(user="The user's name.")
