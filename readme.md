@@ -2,7 +2,7 @@
 
 This is a simple bot that replies with an image or video at a specific iFunny.co link.
 
-> [Add this bot to your server.](https://discord.com/api/oauth2/authorize?client_id=1051024538831437865&permissions=116736&scope=bot%20applications.commands)
+>[Add this bot to your server.](https://discord.com/api/oauth2/authorize?client_id=1051024538831437865&permissions=116736&scope=bot%20applications.commands)
 
 Have any suggestions? Open an issue and I'll read it (eventually).
 
@@ -13,21 +13,70 @@ So I made this bot with this main feature in mind and a couple other features.
 
 ## Installation
 
-> This bot can run on x86, x86-64 and arm (I've only run this on a raspberry pi 4)
+>This bot can run on x86, x86-64 and arm (I've only run this on a raspberry pi 4)
 
-This bot was written in Python and is containerized in Docker.
+This bot was written in Python and can be containerized in Docker.
+Be sure to run the `setup.sh` file to create and install all the required files (except for `.env` and `headers.pickle`).
 
-### Bot Configuration
+Important file structure:
 
-You will also need your own bot token along with the bot's client ID
-which means you will need to create a `.env` file to store it.
+```
+.../
+    ifunnybot/
+    .dockerignore/
+    ...
+    .env
+    headers.pickle
+    main.py
+    ...
+```
+
+### Bot Configuration (`.env`)
+
+You will also need your own bot token which means you will need to create a `.env` file to store it.
 Finally, for development purposes, you should create a private (I don't really care if it's public) server to
 test the bot on.
 See example below:
 
 ```env
 TOKEN=YOUR_BOT_TOKEN
-CLIENTID=YOUR_APPLICATION_ID
+GUILID=YOUR_DEV_SERVER_ID_HERE
+```
+
+>This magical `.env` should live in the same directory as everything else in the project.
+>Also, in the Python rewrite (the current code) `CLIENDID` is never actually used, I'm not sure why.
+
+### HTTP Requests (`headers.pickle`)
+
+In order for iFunny to not reject the HTTP requests from the bot, you **must** spoof your headers i.e., copy
+the headers made to some random website and convert them into a python-dictionary format and then
+use the `pickle` module to dump them into a file called `headers.pickle`.
+
+>I haven't included my own headers as they are personal information about me, I'll investigate what headers are strictly required.
+>This requirement might also change depending on how the iFunny API behaves.
+
+### Logging (`logs/`)
+
+This bot logs quite a lot, but nothing that's personal. The bot will log to the current working directory + `/logs/`.
+
+>This bot will fail if the directory doesn't exist, something I should probably fix.
+
+### Docker
+
+I've created a Docker build file to containerize the bot because logging was a fucking pain in the ass to manage on my host machine.
+Also, it's better to have your services containerized so they don't interfere with the other processes running on the machine, also packages.
+
+To have your logs written to the host machine from the image, this is my docker compose file from my machine:
+
+```yml
+services:
+  funnybot:
+    container_name: "funnybot"
+    build: /path/to/cloned/dir
+    volumes:
+      - /path/to/your/logs/dir:/app/logs/
+    networks:
+      - your_network_here
 ```
 
 ## Server Configuration (CURRENTLY UNIMPLEMENTED IN THE LIVE REWRITE)

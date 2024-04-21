@@ -1,14 +1,25 @@
+"""
+This file contains an object representing a post from iFunny.
+"""
+
 import io
+from typing import TYPE_CHECKING
 
-from PIL import Image, ImageOps
-
-from ifunnybot.core.logging import Logger
 from ifunnybot.types.post_type import PostType
-from ifunnybot.utils.image import retrieve_content
+from ifunnybot.core.logging import Logger
+from ifunnybot.utils.content import crop_convert, retrieve_content
+
+# dear fucking God never remove this
+if TYPE_CHECKING:
+    from ifunnybot.types.response import Response
 
 class Post(object):
+    """
+    Represents a post on iFunny.
+    """
+
     def __init__(self, likes: str = "", comments: str = "", username: str = "",
-                 url: str = "", post_type:  PostType = PostType.MEME,
+                 url: str = "", post_type: PostType = PostType.MEME,
                  content_url:  str = "", icon_url: str = ""): 
 
         # saving fields
@@ -19,10 +30,12 @@ class Post(object):
         self._post_type: PostType = post_type
         self._content_url: str = content_url
         self._icon_url: str = icon_url
-        self._content: io.BytesIO = io.BytesIO()
+        self._content: Response = None
 
     def __repr__(self) -> str:
-        return f"<Post: {self._post_type}@{self._url} by {self._username}, likes: {self._likes}, comments: {self._comments}>"
+        if self._content:
+            return f"<Post: {self._post_type}@{self._url} by {self._username}, type: {self._content or 'undefined'}>"
+        return f"<Post: {self._post_type}@{self._url} by {self._username}>"
 
     def retrieve_content(self):
         """Retrieves the content located at `self.content_url`."""
@@ -31,46 +44,40 @@ class Post(object):
         Logger.info(f"Retrieving content from CDN: {self._content_url}")
 
         # saving the response as a byte array
-        if (_buf := retrieve_content(self._content_url)):
-            self._content = _buf
+        if (resp := retrieve_content(self._content_url)):
+            self._content = resp
         else:
             Logger.error(f"Failed to retrieve content from {self._content_url}.")
+            return
+        
+        # checking the data type of the image
+        self.check_datatype()
+
+    def check_datatype(self):
+        """
+        This function checks whether or not the content requested from iFunny
+        is actually what it says it is i.e., a gif is a gif and not an mp4.
+
+        If the function finds that the datatype is incorrect, as of now, it will
+        only change the internal `self._post_type` enum to match and NOT convert.
+        """
+
+        # this function doesn't actually do anything yet
+        return
 
     def crop_watermark(self):
         """Removes the iFunny watermark from images."""
 
-        # logging
-        Logger.info(f"Cropping watermark.")
-
         # checking the post type first
         if self._post_type != PostType.PICTURE:
-            Logger.warn(f"Tried to crop something that wasn't an image: {self._post_type}")
+            Logger.error(f"Tried to crop something that wasn't an image: {self._post_type}")
             return
 
-        # turning bytes into an image
-        image = Image.open(self._content)
-
-        # cropping & the image
-        cropped = ImageOps.crop(image, (0, 0, 0, 20))
-
-        # saving the image back into the bytes buffer
-        # I hate this hack
-        self._content.close()
-        del self._content
-        self._content = io.BytesIO()
-        cropped.save(self._content, format="PNG")
-
-        # cleanup
-        image.close()
-        cropped.close()
-        del image, cropped
-
-        # seeking back to the beginning because this fixes things
-        self._content.seek(0)
+        self._content.bytes = crop_convert(self._content.bytes, crop=True)
 
     @property
     def content(self) -> io.BytesIO:
-        return self._content
+        return self._content.bytes
 
     @property
     def likes(self) -> str:

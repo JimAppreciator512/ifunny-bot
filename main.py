@@ -19,22 +19,38 @@ config = {
     **dotenv_values(".env")
 }
 
-# development server ID
-development_server = 0
+# vars
+DEV_MODE = False
+DEV_SERVER = 0
 
 # checking the .env values
-Logger.debug("Checking for GUILDID to be set, if so, start in development mode.")
+Logger.info("Checking for DEV to be set, if so, start in development mode.")
 try:
-    development_server = int(config["GUILDID"])
-    Logger.debug("GUILDID is set, starting in development mode.")
+    DEV_MODE = bool(config["DEV"])
+    Logger.info("DEV is set, starting in development mode.")
 except:
-    development_server = 0
-    Logger.debug("GUILDID not set, starting in production.")
+    Logger.info("DEV not set, starting in production.")
+
+
+# development mode checks
+if DEV_MODE:
+    # checking for the development server id
+    if not config["GUILDID"]:
+        Logger.warn(f"The bot is currently running in development mode but the ID of the development server is not set, development mode won't work correctly.")
+    else:
+        # checking if the development server is an integer (it should be)
+        try:
+            DEV_SERVER = int(config["GUILDID"])
+        except Exception:
+            Logger.fatal("Could not cast GUILDID to an integer, development mode won't work correctly.")
+
 
 # checking for the token
+Logger.info("Checking for TOKEN...")
 if not config["TOKEN"]:
     Logger.fatal("Couldn't start bot, missing 'TOKEN' from .env values.")
     sys.exit(1)
+Logger.info("TOKEN is set.")
 
 
 # intents
@@ -42,7 +58,8 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 # creating the client
-client = FunnyBot(intents=intents, logger=Logger, guildId=development_server)
+client = FunnyBot(intents=intents, logger=Logger, guildId=DEV_SERVER)
+
 
 @client.event
 async def on_ready():
@@ -50,13 +67,14 @@ async def on_ready():
 
     # presence message
     _status, _tag = None, None
-    if development_server == 0:
+    if DEV_MODE:
+        # development mode
+        _status = discord.Status.do_not_disturb
+        _tag = "Down for maintenance."
+    else:
         # production
         _status = discord.Status.online
         _tag = "iFunny Bot v2.0"
-    else:
-        _status = discord.Status.do_not_disturb
-        _tag = "Down for maintenance."
 
     await client.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name=_tag), status=_status)
 
@@ -76,8 +94,8 @@ async def on_message(message: discord.message.Message):
         return
     
     # debug mode shit
-    if development_server != 0:
-        if message.guild.id != development_server:
+    if DEV_MODE:
+        if message.guild.id != int(config["GUILDID"]):
             # ignoring commands when in development mode
             return
 
@@ -134,17 +152,23 @@ async def icon(interaction: discord.Interaction, user: str):
 
     # getting the user's profile
     if not (profile := funny.get_profile(user)):
+        Logger.info(f"Could not find user '{user}' (although they may exist)")
         return await interaction.followup.send(content=f"Could not find user '{user}' (although they may exist)")
     else:
         # getting the icon of the user
         if not (image := profile.retrieve_icon()):
+            Logger.info(f"An error occurred getting '{user}'s profile picture.")
             return await interaction.followup.send(content=f"An error occurred getting '{user}'s profile picture.")
 
         # user has icon, returning it
         file = discord.File(image, filename=f"{profile.username}_pfp.png")
 
+        # logging
+        Logger.info(f"Replying to interaction with file: {profile.username}_pfp.png")
+
         # returning the image
         return await interaction.followup.send(file=file)
+
 
 @client.tree.command(name="user", description="Embeds the link to a user's profile. (case insensitive)")
 @app_commands.describe(user="The user's name.")
@@ -154,6 +178,7 @@ async def user(interaction: discord.Interaction, user: str):
 
     # getting the user's profile
     if not (profile := funny.get_profile(user)):
+        Logger.info(f"Could not find user '{user}' (although they may exist)")
         return await interaction.followup.send(content=f"Could not find user '{user}' (although they may exist)")
     else:
         # creating an embed for the profile
@@ -165,6 +190,10 @@ async def user(interaction: discord.Interaction, user: str):
         embed.set_thumbnail(url=profile.icon_url)
         embed.set_footer(text=f"{profile.subscribers} subscribers, {profile.subscriptions} subscriptions, {profile.features} features")
 
+        # logging
+        Logger.info(f"Replying to interaction with embed about: {profile}")
+
+        # replying to interaction
         return await interaction.followup.send(embed=embed)
     
 

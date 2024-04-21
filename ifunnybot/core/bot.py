@@ -31,5 +31,5 @@ class FunnyBot(discord.Client):
         await self.tree.sync(guild=self._guild)
         
         # logging
-        self._log.info("Set up self")
+        self._log.info("Finished updating commands.")
 
