@@ -8,4 +8,5 @@ venv/
 *.log
 logs/
 *.bak
+debug.py
 

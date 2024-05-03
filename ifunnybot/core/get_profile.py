@@ -5,9 +5,18 @@ from bs4 import BeautifulSoup as soup
 from ifunnybot.core.logging import Logger
 from ifunnybot.data import Headers
 from ifunnybot.types import Profile
-from ifunnybot.utils import ifunny_no_pfp
+from ifunnybot.utils import ifunny_no_pfp, get_username
 
-def get_profile(username: str, _headers=Headers) -> Optional[Profile]:
+def get_profile_by_name(username: str, _headers=Headers) -> Optional[Profile]:
+    return _get_profile(username, _headers=_headers)
+
+def get_profile_by_url(url: str, _headers=Headers) -> Optional[Profile]:
+    if (username := get_username(url)):
+        return _get_profile(username, _headers=_headers)
+    Logger.error(f"Could not extract the user from {url}.")
+    return None
+
+def _get_profile(username: str, _headers=Headers) -> Optional[Profile]:
 
     # creating the url of the user
     url = f"https://ifunny.co/user/{username}"

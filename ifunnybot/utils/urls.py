@@ -4,8 +4,9 @@ from typing import Optional, Any
 from ifunnybot.types.post_type import PostType
 
 # regular expressions
-ifunny_url = r"(https:\/\/(br\.)?ifunny.co\/(picture|video|gif|meme)\/[\w|-]+(\?s=cl)?)"
-ifunny_datatype = r"(picture|video|gif|meme)"
+ifunny_url = r"(https:\/\/(br\.)?ifunny.co\/(picture|video|gif|meme|user)\/[\w|-]+(\?s=cl)?)"
+ifunny_user_url = r"https:\/\/(br\.)?ifunny.co\/user\/([\w|-|_]+)"
+ifunny_datatype = r"(picture|video|gif|meme|user)"
 
 # constants
 ifunny_no_pfp = "https://play-lh.googleusercontent.com/Wr4GnjKU360bQEFoVimXfi-OlA6To9DkdrQBQ37CMdx1Kx5gRE07MgTDh1o7lAPV1ws"
@@ -46,5 +47,21 @@ def get_datatype(url: str) -> Optional[PostType]:
     # testing for a type
     if m:
         return PostType.value_of(m.group(0))
+    return None
+
+def get_username(url: str) -> Optional[str]:
+    """
+    Gets the name of a user from the url.
+    """
+
+    if not has_url(url):
+        return None
+
+    # using re.search
+    m = re.search(ifunny_user_url, url)
+
+    # testing for a match
+    if m:
+        return m.group(2)
     return None
 

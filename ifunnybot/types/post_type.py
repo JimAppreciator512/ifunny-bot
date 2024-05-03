@@ -2,9 +2,10 @@ from enum import Enum
 
 class PostType(Enum):
     PICTURE = 0
-    VIDEO = 1
-    GIF   = 2
-    MEME  = 3
+    VIDEO   = 1
+    GIF     = 2
+    MEME    = 3
+    USER    = 4
 
     @staticmethod
     def value_of(string: str):
@@ -17,6 +18,8 @@ class PostType(Enum):
                 return PostType.GIF
             case "meme":
                 return PostType.MEME
+            case "user":
+                return PostType.USER
             case _:
                 return None
     
@@ -30,6 +33,8 @@ class PostType(Enum):
                 return "gif"
             case 3:
                 return "meme"
+            case 4:
+                return "user"
             case _:
                 raise TypeError(f"Tried to convert invalid enum value to string: {self.value}")
 
