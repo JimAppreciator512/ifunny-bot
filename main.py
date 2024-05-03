@@ -106,7 +106,9 @@ async def on_message(message: discord.message.Message):
     # there might be multiple urls
     for url in urls:
         # what type of url was it? post or user?
-        match funny.get_datatype(url):
+        t = funny.get_datatype(url)
+        print(url, t, type(t))
+        match t:
             case funny.PostType.USER:
                 # embed a user post
                 if not (profile := funny.get_profile_by_url(url)):
@@ -128,7 +130,8 @@ async def on_message(message: discord.message.Message):
                     # replying to interaction
                     return await message.reply(embed=embed)
 
-            case [funny.PostType.VIDEO, funny.PostType.GIF, funny.PostType.PICTURE]:
+            # apparently, Python won't work properly if the case is a list of enums or comma-separated
+            case funny.PostType.VIDEO | funny.PostType.GIF | funny.PostType.PICTURE:
                 # the post was a link to a non user
                 if not (post := funny.get_post(url)):
                     Logger.error(f"There was an error extracting information from {message.content}")
@@ -167,7 +170,7 @@ async def on_message(message: discord.message.Message):
                     
                 await message.reply(embed=embed, file=file)
             case _:
-                Logger.error(f"Could not discern the type of the post, silently aborting.")
+                Logger.error(f"Could not discern the type of the post, silently aborting. Type was {funny.get_datatype(url)}")
                 return None
 
 
