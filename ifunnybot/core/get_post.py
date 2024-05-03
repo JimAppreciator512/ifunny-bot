@@ -19,17 +19,25 @@ def get_post(url: str, _headers=Headers) -> Optional[Post]:
         Logger.error(f"There was an exception making a GET request to {url}: {e}")
         return None
 
-    # testing the response code
-    if response.status_code != requests.codes.ok:
-        # do something here
-        Logger.error(f"There was an error making the HTTP request to {url}")
-        return
+    # what did we get from the website?
+    match response.status_code:
+        case _ if response.status_code > 200:
+            # good
+            Logger.debug(f"Received a response from the server: {response.status_code}")
+        case _ if response.status_code > 400:
+            # post was taken down :(
+            Logger.error(f"There was an error making the HTTP request to {url}")
+            return None
+        case _ if response.status_code > 500:
+            # iFunny fucked up
+            Logger.error(f"Server didn't like the request, returned {response.status_code}")
+            return None
 
     # transforming the response into something useable
     dom = soup(response.text, "html.parser")
     if not dom.css:
         Logger.fatal(f"There was an internal error with BeautifulSoup, cannot use CSS selectors")
-        return
+        return None
 
     ## the response was OK, now scraping information
     info = Post()
@@ -38,14 +46,13 @@ def get_post(url: str, _headers=Headers) -> Optional[Post]:
     info.url = url
 
     # getting the datatype of the url
-    datatype = get_datatype(url)
-    if not datatype:
+    if not (datatype := get_datatype(url)):
         # do something here
         Logger.error(f"Could not find any content at {url}.")
-        return
+        return None
 
     # logging
-    Logger.info(f"Found {datatype} at {url}")
+    Logger.debug(f"Found {datatype} at {url}")
 
     # setting the data type of the post
     info.post_type = datatype
@@ -88,6 +95,11 @@ def get_post(url: str, _headers=Headers) -> Optional[Post]:
             info.content_url = element[0].get(attribute)
 
             break
+
+    # checking if the content_url is not None
+    if not info.content_url:
+        Logger.error(f"Couldn't get the content_url from the website.")
+        return None
 
     ## scraping other info about the post
     info.username = dom.css.select("div._9JPE > a.WiQc > span.IfB6")[0].text.replace(" ", "")

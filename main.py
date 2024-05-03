@@ -24,12 +24,12 @@ DEV_MODE = False
 DEV_SERVER = 0
 
 # checking the .env values
-Logger.info("Checking for DEV to be set, if so, start in development mode.")
+Logger.debug("Checking for DEV to be set, if so, start in development mode.")
 try:
     DEV_MODE = bool(config["DEV"])
-    Logger.info("DEV is set, starting in development mode.")
+    Logger.debug("DEV is set, starting in development mode.")
 except:
-    Logger.info("DEV not set, starting in production.")
+    Logger.debug("DEV not set, starting in production.")
 
 
 # development mode checks
@@ -46,11 +46,11 @@ if DEV_MODE:
 
 
 # checking for the token
-Logger.info("Checking for TOKEN...")
+Logger.debug("Checking for TOKEN...")
 if not config["TOKEN"]:
     Logger.fatal("Couldn't start bot, missing 'TOKEN' from .env values.")
     sys.exit(1)
-Logger.info("TOKEN is set.")
+Logger.debug("TOKEN is set.")
 
 
 # intents

@@ -49,9 +49,6 @@ class Post(object):
         else:
             Logger.error(f"Failed to retrieve content from {self._content_url}.")
             return
-        
-        # checking the data type of the image
-        self.check_datatype()
 
     def check_datatype(self):
         """
@@ -63,7 +60,7 @@ class Post(object):
         """
 
         # this function doesn't actually do anything yet
-        return
+        raise NotImplementedError("This function isn't implemented yet.")
 
     def crop_watermark(self):
         """Removes the iFunny watermark from images."""

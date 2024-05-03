@@ -18,7 +18,7 @@ class FunnyBot(discord.Client):
 
         # saving the target guild id
         if guildId:
-            self._log.info("Starting bot in development mode")
+            self._log.debug("Starting bot in development mode.")
             self._guild = discord.Object(id=guildId)
         else:
             self._guild = None
@@ -26,10 +26,10 @@ class FunnyBot(discord.Client):
     async def setup_hook(self) -> None:
         # dispatching commands
         if self._guild:
-            self._log.info(f"Copying commands to development server.")
+            self._log.debug(f"Copying commands to development server.")
             self.tree.copy_global_to(guild=self._guild)
         await self.tree.sync(guild=self._guild)
         
         # logging
-        self._log.info("Finished updating commands.")
+        self._log.info("Finished syncing commands.")
 

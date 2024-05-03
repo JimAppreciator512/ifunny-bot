@@ -41,7 +41,7 @@ def retrieve_content(url: str) -> Optional[Response]:
         case 0:
             Logger.warn(f"pyfsig failed to determine the type of the file.")
         case 1:
-            Logger.info(f"Signature of the file: {sigs[0]}")
+            Logger.debug(f"Signature of the file: {sigs[0]}")
             sig = sigs[0]
         case _:
             Logger.warn(f"Error discerning the file signature from the response, number of signatures: {len(sigs)}")
@@ -76,19 +76,19 @@ def crop_convert(_bytes: io.BytesIO, crop=False, format="PNG") -> io.BytesIO:
     _image = Image.open(_bytes)
     
     # checking the file type
-    if not _image.format:
+    if _image.format == None:
         Logger.warn(f"PIL could not discern what file type the image is.")
 
     # cropping & the image
     if crop:
         _image = ImageOps.crop(_image, (0, 0, 0, 20))
-        Logger.info("Cropped watermark from image.")
+        Logger.debug("Cropped watermark from image.")
 
     # converting the image
     _image.save(nbuf, format=format)
 
     # logging
-    Logger.info(f"Converted '{_image.format}' to 'PNG'.")
+    Logger.debug(f"Converted '{_image.format}' to 'PNG'.")
 
     # cleanup
     _bytes.close()

@@ -15,7 +15,6 @@ filename = f"logs/{int(datetime.utcnow().timestamp())}-funnybot.log"
 # creating a Logger
 Logger = logging.getLogger("FunnyBot")
 Logger.setLevel(logging.DEBUG)
-Logger.addFilter(HighPassFilter(logging.DEBUG))
 
 # creating formatter
 fmt = logging.Formatter("%(asctime)s - %(name)s - %(levelname)-7s: %(message)s")
@@ -24,13 +23,11 @@ fmt = logging.Formatter("%(asctime)s - %(name)s - %(levelname)-7s: %(message)s")
 std = logging.StreamHandler(sys.stdout)
 std.setFormatter(fmt)
 std.setLevel(logging.DEBUG)
-std.addFilter(HighPassFilter(logging.DEBUG))
 
 # file handler
 fd = logging.FileHandler(filename, mode="w")
 fd.setFormatter(fmt)
-fd.setLevel(logging.DEBUG)
-fd.addFilter(HighPassFilter(logging.DEBUG))
+fd.setLevel(logging.INFO)
 
 # adding handlers
 Logger.addHandler(std)
