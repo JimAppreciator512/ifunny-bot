@@ -5,16 +5,19 @@ from bs4 import BeautifulSoup as soup
 from ifunnybot.core.logging import Logger
 from ifunnybot.data import Headers
 from ifunnybot.types import Profile
-from ifunnybot.utils import ifunny_no_pfp, get_username
+from ifunnybot.utils import IFUNNY_NO_PFP, get_username_from_url
+
 
 def get_profile_by_name(username: str, _headers=Headers) -> Optional[Profile]:
     return _get_profile(username, _headers=_headers)
 
+
 def get_profile_by_url(url: str, _headers=Headers) -> Optional[Profile]:
-    if (username := get_username(url)):
+    if username := get_username_from_url(url):
         return _get_profile(username, _headers=_headers)
     Logger.error(f"Could not extract the user from {url}.")
     return None
+
 
 def _get_profile(username: str, _headers=Headers) -> Optional[Profile]:
 
@@ -41,7 +44,9 @@ def _get_profile(username: str, _headers=Headers) -> Optional[Profile]:
     # transforming the response into something useable
     dom = soup(response.text, "html.parser")
     if not dom.css:
-        Logger.fatal(f"There was an internal error with BeautifulSoup, cannot use CSS selectors")
+        Logger.fatal(
+            f"There was an internal error with BeautifulSoup, cannot use CSS selectors"
+        )
         return None
 
     ## scraping information
@@ -53,7 +58,7 @@ def _get_profile(username: str, _headers=Headers) -> Optional[Profile]:
     else:
         # the user does not have a pfp
         Logger.info(f"User {username} doesn't have a pfp.")
-        profile.icon_url = ifunny_no_pfp
+        profile.icon_url = IFUNNY_NO_PFP
 
     # getting the description
     if description_el := dom.css.select("div.Hi31 > div.vjX5"):
@@ -85,4 +90,3 @@ def _get_profile(username: str, _headers=Headers) -> Optional[Profile]:
 
     # returning the collected information
     return profile
-

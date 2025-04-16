@@ -14,18 +14,18 @@ class Response(object):
     Contains information about the response from the iFunny CDN.
     """
 
-    def __init__(self, _bytes: io.BytesIO, _url: str, _type: Optional[FileSignature], _response: requests.Response):
-        if not _bytes:
-            raise ValueError(f"_bytes wasn't defined during creation.")
-        if not _url:
-            raise ValueError(f"_url wasn't defined during creation.")
-        if not _response:
-            raise ValueError(f"_response wasn't defined during creation.")
+    def __init__(self, bytes_: io.BytesIO, url: str, type_: Optional[FileSignature], response: requests.Response):
+        if not bytes_:
+            raise ValueError("_bytes wasn't defined during creation.")
+        if not url:
+            raise ValueError("_url wasn't defined during creation.")
+        if not response:
+            raise ValueError("_response wasn't defined during creation.")
 
-        self._bytes = _bytes
-        self._type = _type
-        self._url = _url
-        self._response = _response
+        self._bytes = bytes_
+        self._type = type_
+        self._url = url
+        self._response = response
 
     @property
     def reason(self) -> str:
@@ -49,7 +49,7 @@ class Response(object):
         return self._url
 
     @property
-    def type(self) -> FileSignature:
+    def type(self) -> Optional[FileSignature]:
         """
         Gets the type of the response i.e., the "content-type" from the headers.
         """

@@ -2,12 +2,14 @@ import logging
 import sys
 from datetime import datetime
 
+
 class HighPassFilter(logging.Filter):
     def __init__(self, level):
         self.level = level
 
     def filter(self, record):
         return record.levelno >= self.level
+
 
 # filename
 filename = f"logs/{int(datetime.utcnow().timestamp())}-funnybot.log"
@@ -32,4 +34,3 @@ fd.setLevel(logging.INFO)
 # adding handlers
 Logger.addHandler(std)
 Logger.addHandler(fd)
-

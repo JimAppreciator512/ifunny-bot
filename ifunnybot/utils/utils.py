@@ -5,9 +5,14 @@ from typing import Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from ifunnybot.types.post import Post
 
-filename_pattern = r"co\/\w+\/([0-9a-f]*)(?:_\d)?\.(\w{3,4})$"
+FILENAME_PATTERN = r"co\/\w+\/([0-9a-f]*)(?:_\d)?\.(\w{3,4})$"
 
-def sanitize_discord(text: str) -> str:
+
+def sanitize_special_characters(text: str) -> str:
+    """
+    Escapes all of the special characters that discord uses.
+    """
+
     illegal = ["\\", "*", "_", "|", "~", ">", "`"]
     sanitized = text
 
@@ -18,9 +23,13 @@ def sanitize_discord(text: str) -> str:
     # returning the "sanitized" string
     return sanitized
 
+
 def create_filename(post: "Post") -> Optional[str]:
-    if not (match := re.search(filename_pattern, post.content_url)):
+    """
+    Gets the name of the file from a `Post` object.
+    """
+
+    if not (match := re.search(FILENAME_PATTERN, post.content_url)):
         return None
 
     return match.group(1)
-

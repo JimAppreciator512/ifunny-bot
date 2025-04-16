@@ -1,3 +1,7 @@
+"""
+This file contains a list of signatures to distinguish the file type.
+"""
+
 from typing import List
 
 from pyfsig.constants import FileSignatureDict
@@ -313,15 +317,14 @@ IFUNNY_SIGS: List[FileSignatureDict] = [
         "display_string": "ftypisom",
         "description": "ISO Base Media file (MPEG-4)",
         "file_extension": "mp4",
-        "hex": [0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d],
+        "hex": [0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6F, 0x6D],
         "offset": 4,
     },
     {
         "display_string": "ftypMSNV",
         "description": "MPEG-4 video file",
         "file_extension": "mp4",
-        "hex": [0x66, 0x74, 0x79, 0x70, 0x4d, 0x53, 0x4e, 0x56],
+        "hex": [0x66, 0x74, 0x79, 0x70, 0x4D, 0x53, 0x4E, 0x56],
         "offset": 4,
-    }
+    },
 ]
-
