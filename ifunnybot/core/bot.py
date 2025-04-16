@@ -2,13 +2,15 @@
 This file contains the bot object.
 """
 
-import logging
+from typing import Tuple, TYPE_CHECKING
 
 import discord
 from discord import app_commands
 
-from ifunnybot.core.logging import Logger
-from ifunnybot.core.get_profile import get_profile_by_name, get_username_from_url, get_profile_by_url
+from ifunnybot.core.get_profile import (
+    get_profile_by_name,
+    get_username_from_url,
+)
 from ifunnybot.core.get_post import get_post
 from ifunnybot.types.mode import Mode
 from ifunnybot.types.secrets import Secrets
@@ -16,86 +18,125 @@ from ifunnybot.types.post_type import PostType
 from ifunnybot.utils.urls import get_url, get_datatype
 from ifunnybot.utils.utils import sanitize_special_characters, create_filename
 
+if TYPE_CHECKING:
+    # importing this as a type
+    import logging
+
 
 class FunnyBot(discord.Client):
+    """
+    The most elite Discord bot for iFunny posts yet.
+    """
+
     def __init__(
-        self, *,
-        intents: discord.Intents,
-        logger: logging.Logger,
-        secrets: Secrets
+        self, *, intents: discord.Intents, logger: "logging.Logger", secrets: Secrets, mode: Mode = Mode.PRODUCTION
     ) -> None:
         super().__init__(intents=intents)
 
         # saving variables
-        self._logger = logger # saving the reference to the logger
-        self._tree = app_commands.CommandTree(self) # the tree variable holds slash commands
-        self._mode: Mode = Mode.PRODUCTION
+        self._logger = logger  # saving the reference to the logger
+        self._tree = app_commands.CommandTree(
+            self
+        )  # the tree variable holds slash commands
+        self._mode = mode
         self._secrets = secrets
-        self._guild: discord.Object = None # type: ignore
+        self._guild: discord.Object = discord.Object(
+            id=self._secrets.guild_id, type=discord.abc.GuildChannel
+        )
 
     # --- setup functions ---
 
     async def setup_hook(self):
         # logging
-        self._logger.info("Starting bot in %s mode." % self._mode.name)
+        self._logger.info(f"Starting bot in {self._mode.name} mode.")
 
         # publishing commands
         match self._mode:
             # if in development, dispatch commands to our testing server
             case Mode.DEVELOPMENT:
-                # create a reference to our guild
-                self._guild = discord.Object(id=self._secrets.guild_id, type=discord.abc.GuildChannel)
-
-                # dispatching
+                # dispatching to the testing server
                 self._tree.copy_global_to(guild=self._guild)
 
-                # logging
-                self._logger.debug(f"Copied commands to development server.")
+                # syncing commands to discord
+                commands = await self._tree.sync(guild=self._guild)
 
-            # continue in production setting
+                # logging
+                self._logger.info(
+                    f"Published {len(commands)} commands to the testing server."
+                )
+
+            # continue in production setting, dispatch commands to everyone
             case Mode.PRODUCTION:
                 # syncing commands to discord
                 commands = await self._tree.sync()
 
                 # logging
-                self._logger.info("Published %d commands." % (len(commands)))
+                self._logger.info(f"Published {len(commands)} commands.")
 
     # --- getters & setters ---
 
+    def set_mode(self, mode: Mode):
+        """
+        Sets the mode of the bot. This is really only applicable for when
+        the bot initially launches.
+        """
+        if not isinstance(mode, Mode):
+            raise TypeError(f"Expected type Mode, got type {type(mode)}")
+        self._mode = mode
+
     @property
     def token(self) -> str:
+        """
+        Returns the token of the bot.
+        """
         return self._secrets.token
-    
+
     @property
     def client_id(self) -> int:
+        """
+        Returns the client ID of the bot.
+        """
         return self._secrets.client_id
-    
+
     @property
     def guild_id(self) -> int:
+        """
+        Returns the ID of the testing server.
+        """
         return self._secrets.guild_id
 
     @property
     def tree(self) -> "app_commands.CommandTree[FunnyBot]":
+        """
+        Returns the slash command builder.
+        """
         return self._tree
 
-    # --- bot commands ---
+    # --- bot events ---
 
     async def on_ready(self):
         # setting status
         match self._mode:
             case Mode.DEVELOPMENT:
                 # logging
-                await self.change_presence(activity=discord.Activity(type=discord.ActivityType.playing,
-                    name="Down for maintenance."), status=discord.Status.do_not_disturb)
+                await self.change_presence(
+                    activity=discord.Activity(
+                        type=discord.ActivityType.playing, name="Down for maintenance."
+                    ),
+                    status=discord.Status.do_not_disturb,
+                )
 
             case Mode.PRODUCTION:
                 # logging
-                await self.change_presence(activity=discord.Activity(type=discord.ActivityType.playing,
-                    name="iFunny Bot v2.1"), status=discord.Status.online)
-
+                await self.change_presence(
+                    activity=discord.Activity(
+                        type=discord.ActivityType.playing, name="iFunny Bot v2.1"
+                    ),
+                    status=discord.Status.online,
+                )
 
         # logging
-        Logger.info(f"Logged in as: {self.user}")
+        self._logger.info(f"Logged in as: {self.user}")
 
     async def on_message(self, message: discord.message.Message):
         # guard clauses
@@ -122,44 +163,48 @@ class FunnyBot(discord.Client):
             match post_type:
                 case PostType.USER:
                     # getting the username from the url
-                    user = get_username_from_url(url)
+                    if (user := get_username_from_url(url)) is None:
+                        # there was an error
+                        return await message.reply(
+                            content=f"Couldn't extract the username from: {url}",
+                            silent=True,
+                        )
 
-                    # embed a user post
-                    if not (profile := get_profile_by_url(url)):
-                        Logger.info(f"Could not find user '{user}' (although they may exist)")
-                        return
-                    
-                    # creating an embed for the profile
-                    embed = discord.Embed(description=profile.description)
+                    try:
+                        # making the embed
+                        embed = self.get_user(user)
 
-                    # adding info
-                    embed.set_author(name=sanitize_special_characters(profile.username),
-                                    url=profile.profile_url)
-                    embed.set_thumbnail(url=profile.icon_url)
-                    embed.set_footer(text=f"{profile.subscribers} subscribers, {profile.subscriptions} subscriptions, {profile.features} features")
+                        # logging
+                        self._logger.info(
+                            f"Replying to interaction with embed about user {user}"
+                        )
 
-                    # logging
-                    Logger.info(
-                        f"Replying to interaction with embed about: {profile}")
-
-                    # replying to interaction
-                    return await message.reply(embed=embed)
+                        return await message.reply(embed=embed)
+                    except RuntimeError as reason:
+                        # there was an error
+                        return await message.reply(content=str(reason), silent=True)
 
                 # apparently, Python won't work properly if the case is a list of enums or comma-separated
                 case PostType.VIDEO | PostType.GIF | PostType.PICTURE:
                     # the post was a link to a non user
                     if not (post := get_post(url)):
-                        Logger.error(f"There was an error extracting information from {
-                                    message.content}")
-                        await message.reply(content=f"There was an internal error embedding the post from {message.content}", silent=True)
+                        self._logger.error(
+                            f"There was an error extracting information from {message.content}"
+                        )
+                        await message.reply(
+                            content=f"There was an internal error embedding the post from {message.content}",
+                            silent=True,
+                        )
 
                         # looping
                         continue
 
                     # creating an embed
-                    embed = discord.Embed(title=f"Post by {sanitize_special_characters(post.username)}",
-                                        url=post.url,
-                                        description=f"{post.likes} likes.\t{post.comments} comments.")
+                    embed = discord.Embed(
+                        title=f"Post by {sanitize_special_characters(post.username)}",
+                        url=post.url,
+                        description=f"{post.likes} likes.\t{post.comments} comments.",
+                    )
                     embed.set_author(name="", icon_url=post.icon_url)
 
                     # create the filename
@@ -177,97 +222,123 @@ class FunnyBot(discord.Client):
                         # this fails whenever this receives a PostType of MEME or USER
                         case _:
                             # this should never happen
-                            Logger.error(f"Tried to make extension of invalid post type: {
-                                        post.post_type}")
+                            self._logger.error(
+                                f"Tried to make extension of invalid post type: {post.post_type}"
+                            )
 
                     # creating the file object
-                    file = discord.File(post.content, filename=f"{
-                                        filename}.{extension}")
+                    file = discord.File(
+                        post.content, filename=f"{filename}.{extension}"
+                    )
 
                     # logging
-                    Logger.info(f"Replying to interaction with '{
-                                filename}.{extension}'")
+                    self._logger.info(
+                        f"Replying to interaction with '{filename}.{extension}'"
+                    )
 
                     await message.reply(embed=embed, file=file)
                 case _:
-                    Logger.error(f"Could not discern the type of the post, silently aborting. Type was {
-                                get_datatype(url)}")
+                    self._logger.error(
+                        f"Could not discern the type of the post, silently aborting. Type was {get_datatype(url)}"
+                    )
                     return None
 
+    # --- bot functions ---
 
-    async def get_icon(self, interaction: discord.Interaction, user: str):
-        # deferring the reply
-        await interaction.response.defer(thinking=True)
+    def get_icon(self, user: str) -> "discord.File":
+        """
+        This function returns the target user's profile picture as a
+        `discord.File` object.
 
-        # getting the user's profile
-        if not (profile := get_profile_by_name(user)):
-            Logger.info(f"Could not find user '{user}' (although they may exist)")
-            return await interaction.followup.send(content=f"Could not find user '{user}' (although they may exist)")
-        else:
-            # getting the icon of the user
-            if not (image := profile.retrieve_icon()):
-                Logger.info(f"An error occurred getting '{
-                            user}'s profile picture.")
-                return await interaction.followup.send(content=f"An error occurred getting '{user}'s profile picture.")
-
-            # user has icon, returning it
-            file = discord.File(image, filename=f"{profile.username}_pfp.png")
-
-            # logging
-            Logger.info(f"Replying to interaction with file: {profile.username}_pfp.png")
-
-            # returning the image
-            return await interaction.followup.send(file=file)
-
-
-    async def get_user(self, interaction: discord.Interaction, user: str):
-        # deferring the reply
-        await interaction.response.defer(thinking=True)
+        If there are any errors, a `RuntimeError`
+        is raised with the reason for the failure.
+        """
 
         # getting the user's profile
         if not (profile := get_profile_by_name(user)):
-            Logger.info(f"Could not find user '{user}' (although they may exist)")
-            return await interaction.followup.send(content=f"Could not find user '{user}' (although they may exist)")
-        else:
-            # creating an embed for the profile
-            embed = discord.Embed(description=profile.description)
+            reason = f"Could not find user {user} (although they may exist)"
+            self._logger.info(reason)
+            raise RuntimeError(reason)
 
-            # adding info
-            embed.set_author(name=sanitize_special_characters(profile.username),
-                            url=profile.profile_url)
-            embed.set_thumbnail(url=profile.icon_url)
-            embed.set_footer(text=f"{profile.subscribers} subscribers, {
-                            profile.subscriptions} subscriptions, {profile.features} features")
+        # getting the icon of the user
+        if not (image := profile.retrieve_icon()):
+            reason = f"An error occurred getting {user}'s profile picture."
+            self._logger.info(reason)
+            raise RuntimeError(reason)
 
-            # logging
-            Logger.info(f"Replying to interaction with embed about: {profile}")
+        # user has icon, returning it
+        filename = f"{profile.username}_pfp.png"
+        file = discord.File(image, filename=filename)
 
-            # replying to interaction
-            return await interaction.followup.send(embed=embed)
+        # logging
+        self._logger.info(f"Replying to interaction with file: {filename}")
 
+        # returning the image
+        return file
 
-    async def get_post(self, interaction: discord.Interaction, link: str):
-        # deferring the reply
-        await interaction.response.defer(thinking=True)
+    def get_user(self, user: str) -> "discord.Embed":
+        """
+        This function returns the target user's profile as a
+        `discord.Embed` object.
+
+        If there are any errors, a `RuntimeError`
+        is raised with the reason for the failure.
+        """
+
+        # getting the user's profile
+        if not (profile := get_profile_by_name(user)):
+            reason = f"Could not find user '{user}' (the user might be shadow banned.)"
+            self._logger.info(reason)
+            raise RuntimeError(reason)
+
+        # creating an embed for the profile
+        embed = discord.Embed(description=profile.description)
+
+        # adding info
+        embed.set_author(
+            name=sanitize_special_characters(profile.username), url=profile.profile_url
+        )
+        embed.set_thumbnail(url=profile.icon_url)
+        embed.set_footer(
+            text=f"{profile.subscribers} subscribers, {profile.subscriptions} subscriptions, {profile.features} features"
+        )
+
+        # logging
+        self._logger.info(f"Replying to interaction with embed about: {profile}")
+
+        # replying to interaction
+        return embed
+
+    def get_post(self, link: str) -> Tuple["discord.Embed", "discord.File"]:
+        """
+        This function returns the target user's post as a tuple of a `discord.Embed`
+        and `discord.File` object.
+
+        If there are any errors, a `RuntimeError` is raised with the reason for the failure.
+        """
 
         # testing if the interaction contains an iFunny link
         if not (url := get_url(link)):
             # logging & returning
-            Logger.info(f"Received an improper link: {link}")
-            return await interaction.followup.send(content=f"The url {link}, isn't a proper iFunny url.")
+            self._logger.info(f"Received an improper link: {link}")
+            raise RuntimeError(f"The url {link}, isn't a proper iFunny url.")
 
         # simple hack, my precious
         url = url[0]
 
         # got a valid link, getting the post information
         if not (post := get_post(url)):
-            Logger.error(f"There was an error extracting information from {link}")
-            return await interaction.followup.send(content=f"There was an internal error embedding the post from {link}")
+            self._logger.error(f"There was an error extracting information from {link}")
+            raise RuntimeError(
+                f"There was an internal error embedding the post from {link}"
+            )
 
         # creating an embed
-        embed = discord.Embed(title=f"Post by {sanitize_special_characters(post.username)}",
-                            url=post.url,
-                            description=f"{post.likes} likes.\t{post.comments} comments.")
+        embed = discord.Embed(
+            title=f"Post by {sanitize_special_characters(post.username)}",
+            url=post.url,
+            description=f"{post.likes} likes.\t{post.comments} comments.",
+        )
         embed.set_author(name="", icon_url=post.icon_url)
 
         # create the filename
@@ -284,13 +355,14 @@ class FunnyBot(discord.Client):
                 extension = "gif"
             case _:
                 # this should never happen
-                Logger.error(f"Tried to make extension of invalid post type: {
-                            post.post_type}")
+                self._logger.error(
+                    f"Tried to make extension of invalid post type: {post.post_type}"
+                )
 
         # creating the file object
         file = discord.File(post.content, filename=f"{filename}.{extension}")
 
         # logging
-        Logger.info(f"Replying to interaction with '{filename}.{extension}'")
+        self._logger.info(f"Replying to interaction with '{filename}.{extension}'")
 
-        return await interaction.followup.send(embed=embed, file=file)
+        return (embed, file)
