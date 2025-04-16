@@ -42,7 +42,8 @@ if DEV_MODE:
         try:
             DEV_SERVER = int(config["GUILDID"])
         except Exception:
-            Logger.fatal("Could not cast GUILDID to an integer, development mode won't work correctly.")
+            Logger.fatal(
+                "Could not cast GUILDID to an integer, development mode won't work correctly.")
 
 
 # checking for the token
@@ -82,13 +83,13 @@ async def on_ready():
 @client.event
 async def on_message(message: discord.message.Message):
     # guard clauses
-    if message.author == client.user: # not replying to myself
+    if message.author == client.user:  # not replying to myself
         return
-    if message.author.bot: # not replying to any messages from other bots
+    if message.author.bot:  # not replying to any messages from other bots
         return
-    if not message.guild: # the message didn't come from a server
+    if not message.guild:  # the message didn't come from a server
         return
-    
+
     # debug mode shit
     if DEV_MODE:
         if message.guild.id != int(config["GUILDID"]):
@@ -98,7 +99,7 @@ async def on_message(message: discord.message.Message):
     # ignoring messages that do not have an ifunny link
     if not funny.has_url(message.content):
         return
-    
+
     # testing if the interaction contains an iFunny link
     if not (urls := funny.get_url(message.content)):
         return
@@ -112,7 +113,8 @@ async def on_message(message: discord.message.Message):
             case funny.PostType.USER:
                 # embed a user post
                 if not (profile := funny.get_profile_by_url(url)):
-                    Logger.info(f"Could not find user '{user}' (although they may exist)")
+                    Logger.info(f"Could not find user '{
+                                user}' (although they may exist)")
                     return
                 else:
                     # creating an embed for the profile
@@ -122,10 +124,12 @@ async def on_message(message: discord.message.Message):
                     embed.set_author(name=sanitize_discord(profile.username),
                                      url=profile.profile_url)
                     embed.set_thumbnail(url=profile.icon_url)
-                    embed.set_footer(text=f"{profile.subscribers} subscribers, {profile.subscriptions} subscriptions, {profile.features} features")
+                    embed.set_footer(text=f"{profile.subscribers} subscribers, {
+                                     profile.subscriptions} subscriptions, {profile.features} features")
 
                     # logging
-                    Logger.info(f"Replying to interaction with embed about: {profile}")
+                    Logger.info(
+                        f"Replying to interaction with embed about: {profile}")
 
                     # replying to interaction
                     return await message.reply(embed=embed)
@@ -134,12 +138,13 @@ async def on_message(message: discord.message.Message):
             case funny.PostType.VIDEO | funny.PostType.GIF | funny.PostType.PICTURE:
                 # the post was a link to a non user
                 if not (post := funny.get_post(url)):
-                    Logger.error(f"There was an error extracting information from {message.content}")
+                    Logger.error(f"There was an error extracting information from {
+                                 message.content}")
                     await message.reply(content=f"There was an internal error embedding the post from {message.content}", silent=True)
 
                     # looping
                     continue
-    
+
                 # creating an embed
                 embed = discord.Embed(title=f"Post by {sanitize_discord(post.username)}",
                                       url=post.url,
@@ -148,7 +153,7 @@ async def on_message(message: discord.message.Message):
 
                 # create the filename
                 filename = create_filename(post)
-    
+
                 # forming the file extension
                 extension = ""
                 match post.post_type:
@@ -160,23 +165,27 @@ async def on_message(message: discord.message.Message):
                         extension = "gif"
                     case _:
                         # this should never happen
-                        Logger.error(f"Tried to make extension of invalid post type: {post.post_type}")
-    
+                        Logger.error(f"Tried to make extension of invalid post type: {
+                                     post.post_type}")
+
                 # creating the file object
-                file = discord.File(post.content, filename=f"{filename}.{extension}")
-    
+                file = discord.File(post.content, filename=f"{
+                                    filename}.{extension}")
+
                 # logging
-                Logger.info(f"Replying to interaction with '{filename}.{extension}'")
-                    
+                Logger.info(f"Replying to interaction with '{
+                            filename}.{extension}'")
+
                 await message.reply(embed=embed, file=file)
             case _:
-                Logger.error(f"Could not discern the type of the post, silently aborting. Type was {funny.get_datatype(url)}")
+                Logger.error(f"Could not discern the type of the post, silently aborting. Type was {
+                             funny.get_datatype(url)}")
                 return None
 
 
 @client.tree.command(name="icon", description="Retrieves a user's profile picture. (case insensitive)")
 @app_commands.describe(user="The user's name.")
-async def icon(interaction: discord.Interaction, user: str):    
+async def icon(interaction: discord.Interaction, user: str):
     # deferring the reply
     await interaction.response.defer(thinking=True)
 
@@ -187,14 +196,16 @@ async def icon(interaction: discord.Interaction, user: str):
     else:
         # getting the icon of the user
         if not (image := profile.retrieve_icon()):
-            Logger.info(f"An error occurred getting '{user}'s profile picture.")
+            Logger.info(f"An error occurred getting '{
+                        user}'s profile picture.")
             return await interaction.followup.send(content=f"An error occurred getting '{user}'s profile picture.")
 
         # user has icon, returning it
         file = discord.File(image, filename=f"{profile.username}_pfp.png")
 
         # logging
-        Logger.info(f"Replying to interaction with file: {profile.username}_pfp.png")
+        Logger.info(f"Replying to interaction with file: {
+                    profile.username}_pfp.png")
 
         # returning the image
         return await interaction.followup.send(file=file)
@@ -202,7 +213,7 @@ async def icon(interaction: discord.Interaction, user: str):
 
 @client.tree.command(name="user", description="Embeds the link to a user's profile. (case insensitive)")
 @app_commands.describe(user="The user's name.")
-async def user(interaction: discord.Interaction, user: str):    
+async def user(interaction: discord.Interaction, user: str):
     # deferring the reply
     await interaction.response.defer(thinking=True)
 
@@ -218,14 +229,15 @@ async def user(interaction: discord.Interaction, user: str):
         embed.set_author(name=sanitize_discord(profile.username),
                          url=profile.profile_url)
         embed.set_thumbnail(url=profile.icon_url)
-        embed.set_footer(text=f"{profile.subscribers} subscribers, {profile.subscriptions} subscriptions, {profile.features} features")
+        embed.set_footer(text=f"{profile.subscribers} subscribers, {
+                         profile.subscriptions} subscriptions, {profile.features} features")
 
         # logging
         Logger.info(f"Replying to interaction with embed about: {profile}")
 
         # replying to interaction
         return await interaction.followup.send(embed=embed)
-    
+
 
 @client.tree.command(name="post", description="Posts a video/image from iFunny.")
 @app_commands.describe(link="An iFunny.co link e.g., ifunny.co/video/...")
@@ -238,7 +250,7 @@ async def post(interaction: discord.Interaction, link: str):
         # logging & returning
         Logger.info(f"Received an improper link: {link}")
         return await interaction.followup.send(content=f"The url {link}, isn't a proper iFunny url.")
-    
+
     # simple hack, my precious
     url = url[0]
 
@@ -267,17 +279,17 @@ async def post(interaction: discord.Interaction, link: str):
             extension = "gif"
         case _:
             # this should never happen
-            Logger.error(f"Tried to make extension of invalid post type: {post.post_type}")
+            Logger.error(f"Tried to make extension of invalid post type: {
+                         post.post_type}")
 
     # creating the file object
     file = discord.File(post.content, filename=f"{filename}.{extension}")
 
     # logging
     Logger.info(f"Replying to interaction with '{filename}.{extension}'")
-        
+
     return await interaction.followup.send(embed=embed, file=file)
 
 
 # main loop
 client.run(config["TOKEN"])
-
