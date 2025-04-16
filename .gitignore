@@ -9,4 +9,4 @@ venv/
 logs/
 *.bak
 debug.py
-
+.vscode
