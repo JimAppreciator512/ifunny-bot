@@ -773,57 +773,24 @@ class FunnyBot(discord.Client):
                         # there was an error
                         return await message.reply(content=str(reason))
 
-                # apparently, Python won't work properly if the case is a list of enums or comma-separated
+                # apparently, Python won't work properly if the case is a list of enums
+                # or comma-separated
                 case PostType.VIDEO | PostType.GIF | PostType.PICTURE | PostType.MEME:
-                    # the post was a link to a non user
-                    if not (post := self._create_post(url)):
-                        self._logger.error(
-                            f"There was an error extracting information from {message.content}"
+                    try:
+                        # creating everything
+                        (embed, file) = self.get_post(url)
+
+                        # logging
+                        self._logger.info(
+                            f"Replying to interaction with embed about post {url}"
                         )
-                        await message.reply(
-                            content=f"There was an internal error embedding the post from {message.content}",
-                        )
 
-                        # looping
-                        continue
+                        # replying to the user
+                        await message.reply(embed=embed, file=file)
+                    except RuntimeError as reason:
+                        # there was an error
+                        return await message.reply(content=str(reason))
 
-                    # creating an embed
-                    embed = discord.Embed(
-                        title=f"Post by {sanitize_special_characters(post.author)}",
-                        url=post.url,
-                        description=f"{post.likes} likes.\t{post.comments} comments.",
-                    )
-                    embed.set_author(name="", icon_url=post.icon_url)
-
-                    # create the filename
-                    filename = create_filename(post)
-
-                    # forming the file extension
-                    extension = ""
-                    match post.post_type:
-                        case PostType.PICTURE:
-                            extension = "png"
-                        case PostType.VIDEO:
-                            extension = "mp4"
-                        case PostType.GIF:
-                            extension = "gif"
-                        case _:
-                            # this should never happen
-                            self._logger.error(
-                                f"Tried to make extension of invalid post type: {post.post_type}"
-                            )
-
-                    # creating the file object
-                    file = discord.File(
-                        post.content, filename=f"{filename}.{extension}"
-                    )
-
-                    # logging
-                    self._logger.info(
-                        f"Replying to interaction with '{filename}.{extension}'"
-                    )
-
-                    await message.reply(embed=embed, file=file)
                 case _:
                     self._logger.error(
                         f"Could not discern the type of the post, silently aborting. Type was {get_datatype(url)}"
