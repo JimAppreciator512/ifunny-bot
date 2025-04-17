@@ -74,7 +74,8 @@ class FunnyBot(discord.Client):
         # logging
         self._logger.info(f"Starting bot in {self._mode.name} mode.")
 
-        # TODO: wrapping around logging function
+        # wrapping around logging function
+        self._manipulate_logger()
 
         # publishing commands
         match self._mode:
@@ -164,6 +165,37 @@ class FunnyBot(discord.Client):
         return self._tree
 
     # --- bot functions ---
+
+    def _manipulate_logger(self):
+        original_func = getattr(self._logger, "error")
+
+        def error(msg: object, *args: object, **kwargs) -> None:
+            # calling the original logger function
+            original_func(msg, *args, **kwargs)
+
+            # logging to the error channel
+            loop = asyncio.get_event_loop()
+            loop.create_task(self.log_to_error_channel(msg % args))  # type: ignore
+
+        # setting the functions
+        setattr(self._logger, "error", error)
+        setattr(self._logger, "_error", original_func)
+
+    async def log_to_error_channel(self, msg: str):
+        """
+        This functions logs to the error channel specified by `self._secrets`.
+        """
+        # get the channel
+        channel = self.get_channel(self._secrets.error_channel)
+
+        # get again if channel is None
+        if channel is None:
+            # Fallback in case the bot hasn't cached the channel
+            channel = await self.fetch_channel(self._secrets.error_channel)
+
+        # send the message
+        if isinstance(channel, discord.TextChannel):
+            await channel.send(content=msg)
 
     def terminate(self, signal, frame):
         """Gracefully terminates the bot from a synchronous context."""
@@ -442,33 +474,34 @@ class FunnyBot(discord.Client):
             self._logger.error(reason)
             raise RuntimeError(reason)
 
-        # logging
-        if response.status_code >= 500:
-            self._logger.error(
-                "Server responded with code %d when making request to %s, reason: %s",
-                response.status_code,
-                url,
-                response.reason,
-            )
-        else:
-            self._logger.info(
-                "Server responded with code %d when making request to %s, reason: %s",
-                response.status_code,
-                url,
-                response.reason,
-            )
-
         # what did we get from the website?
         match response.status_code:
             case _ if response.status_code >= 500:
                 # raising an error because something went wrong
+                self._logger.error(
+                    "Server responded with code %d when making request to %s, reason: %s",
+                    response.status_code,
+                    url,
+                    response.reason,
+                )
                 raise RuntimeError(f"There was an error making the request to iFunny.")
             case _ if response.status_code >= 400 and response.status_code < 500:
                 # post was taken down :(
+                self._logger.error(
+                    "Server responded with code %d when making request to %s, reason: %s",
+                    response.status_code,
+                    url,
+                    response.reason,
+                )
                 return None  # can return None here since nothing actually went wrong
             case _ if response.status_code >= 200 and response.status_code < 300:
                 # good
-                pass
+                self._logger.info(
+                    "Server responded with code %d when making request to %s, reason: %s",
+                    response.status_code,
+                    url,
+                    response.reason,
+                )
 
         # transforming the response into something useable
         dom = soup(response.text, "html.parser")
