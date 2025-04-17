@@ -16,24 +16,23 @@ IFUNNY_CONTENT_REGEX = r"ifunny.co\/\w+\/([\w|-])+(s=cl)?"
 IFUNNY_NO_PFP = "https://play-lh.googleusercontent.com/Wr4GnjKU360bQEFoVimXfi-OlA6To9DkdrQBQ37CMdx1Kx5gRE07MgTDh1o7lAPV1ws"
 
 
-def get_content_locator(url: str) -> Optional[str]:
-    # using re.search because re.match is fucking stupid
-    m = re.search(IFUNNY_CONTENT_REGEX, url)
-
-    # testing for a type
-    if m:
-        m.group(0)
-    return None
-
-
 def encode_url(url: str) -> str:
     """Encodes a URL in base64."""
     return base64.urlsafe_b64encode(url.encode("utf-8")).decode("utf-8")
 
 
+def remove_image_cropping(url: str) -> str:
+    """This removes the cropping functionality from the URL."""
+
+    cropping = r",resize:\d+x,quality:\d+x\d+"
+    return re.sub(cropping, "", url)
+
+
 def remove_icon_cropping(url: str) -> str:
     """This removes the cropping functionality from the URL."""
-    return url.replace(":square,resize:100x,quality:90x75", "")
+
+    cropping = r":square,resize:\d+x,quality:\d+x\d+"
+    return re.sub(cropping, "", url)
 
 
 def username_to_url(username: str) -> str:

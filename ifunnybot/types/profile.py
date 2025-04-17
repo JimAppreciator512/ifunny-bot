@@ -7,7 +7,7 @@ from typing import Optional
 
 # from ifunnybot.core.logging import Logger
 from ifunnybot.utils.content import retrieve_content, crop_convert
-from ifunnybot.utils.urls import remove_icon_cropping
+from ifunnybot.utils.urls import remove_icon_cropping, username_to_url
 
 
 class Profile(object):
@@ -65,6 +65,11 @@ class Profile(object):
         if self._icon_url is None:
             return
         self._icon_url = remove_icon_cropping(self._icon_url)
+
+    @property
+    def url(self) -> str:
+        """Returns the URL of the user."""
+        return username_to_url(self._username)
 
     @property
     def username(self) -> str:

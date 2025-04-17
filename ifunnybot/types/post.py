@@ -8,7 +8,7 @@ from ifunnybot.types.post_type import PostType
 from ifunnybot.types.response import Response
 from ifunnybot.core.logging import Logger
 from ifunnybot.utils.content import crop_convert, retrieve_content
-from ifunnybot.utils.urls import username_to_url, remove_icon_cropping
+from ifunnybot.utils.urls import username_to_url, remove_icon_cropping, remove_image_cropping
 
 
 class Post(object):
@@ -51,7 +51,7 @@ class Post(object):
         self._likes: str = likes
         self._comments: str = comments
         self._author: str = author
-        self._content_url: str = content_url
+        self._content_url: str = remove_image_cropping(content_url)
         self._icon_url: str = remove_icon_cropping(icon_url)
 
         # programmatically filled
@@ -197,7 +197,7 @@ class Post(object):
     @content_url.setter
     def content_url(self, value: str):
         """Sets the number of content_url to `value`"""
-        self._content_url = str(value)
+        self._content_url = remove_image_cropping(str(value))
 
     @property
     def icon_url(self) -> str:
