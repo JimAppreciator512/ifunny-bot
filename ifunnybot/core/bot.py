@@ -289,7 +289,7 @@ class FunnyBot(discord.Client):
 
         # adding info
         embed.set_author(
-            name=sanitize_special_characters(profile.username), url=profile.profile_url
+            name=sanitize_special_characters(profile.username), url=profile.url
         )
         embed.set_footer(
             text=f"{profile.subscribers} subscribers, {profile.subscriptions} subscriptions, {profile.features} features"
