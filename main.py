@@ -63,8 +63,11 @@ async def user(interaction: discord.Interaction, user_: str):
         # calling the bot
         embed_ = client.get_user(user_)
 
+        # passing the url as content since you actually can't click this on mobile
+        url = funny.username_to_url(user_)
+
         # returning the image
-        return await interaction.followup.send(embed=embed_)
+        return await interaction.followup.send(embed=embed_, content=url)
     except RuntimeError as reason:
         return await interaction.followup.send(content=str(reason), ephemeral=True)
 

@@ -2,25 +2,33 @@
 This file contains the bot object.
 """
 
+import io
+import pickle
 from typing import Tuple, TYPE_CHECKING, Optional
 
+import pyfsig
 import asyncio
 import discord
 import requests
 from discord import app_commands
 from bs4 import BeautifulSoup as soup
+from PIL import Image, ImageOps
 
 from ifunnybot.data.headers import Headers
 from ifunnybot.types.post import Post
 from ifunnybot.types.mode import Mode
+from ifunnybot.types.response import Response
 from ifunnybot.types.secrets import Secrets
 from ifunnybot.types.profile import Profile
 from ifunnybot.types.post_type import PostType
+from ifunnybot.data.signatures import IFUNNY_SIGS
+from ifunnybot.utils.html import generate_safe_selector
 from ifunnybot.utils.utils import sanitize_special_characters, create_filename
 from ifunnybot.utils.urls import (
     get_url,
     get_datatype,
     get_username_from_url,
+    encode_url,
     username_to_url,
 )
 
@@ -236,12 +244,12 @@ class FunnyBot(discord.Client):
 
         # creating an embed
         embed = discord.Embed(
-            title=f"Post by {sanitize_special_characters(post.username)}",
+            title=f"Post by {sanitize_special_characters(post.author)}",
             url=post.url,
             description=f"{post.likes} likes.\t{post.comments} comments.",
         )
         embed.set_author(
-            name=sanitize_special_characters(post.username),
+            name=sanitize_special_characters(post.author),
             url=post.username_to_url(),
             icon_url=post.icon_url,
         )
@@ -292,7 +300,7 @@ class FunnyBot(discord.Client):
 
     def _create_post(self, url: str, _headers=Headers) -> Optional[Post]:
         """
-        This actually makes a `Profile` object by webscraping.
+        This actually makes a `Post` object by webscraping.
 
         If the error is something the client would want to know i.e., a user
         doesn't exist anymore. Then, a `RuntimeError` will be raised with
@@ -340,20 +348,27 @@ class FunnyBot(discord.Client):
             )
             return None
 
-        ## the response was OK, now scraping information
-        info = Post()
-
-        # saving the url
-        info.url = url
+        # the response was OK, now scraping information
+        info = Post(url=url)
 
         # pulling the data type from the url
-        canonical_el = dom.css.select(Post.REAL_CONTENT_SEL[0])
-        if canonical_el is None:
-            self._logger.error("Couldn't find the canonical URL of the post. Aborting.")
+        canonical_el = dom.css.select(Post.CANONICAL_SEL[0])
+        if len(canonical_el) == 0:
+            # logging
+            self._logger.error(f"Couldn't obtain the canonical url of {url}, aborting.")
+
+            # pickle the webpage
+            self._pickle_website(
+                url,
+                response.text,
+                RuntimeError(f"Couldn't obtain the canonical url of {url}, aborting."),
+            )
+
+            # returning
             return None
 
         # grabbing the datatype
-        canonical_url = canonical_el[0].get(Post.REAL_CONTENT_SEL[1], None)
+        canonical_url = canonical_el[0].get(Post.CANONICAL_SEL[1], None)
         info.post_type = get_datatype(canonical_url)  # type: ignore
         if info.post_type is None:
             self._logger.error(
@@ -379,50 +394,82 @@ class FunnyBot(discord.Client):
                 )
                 return None
 
-        # getting the element
-        content_el = dom.css.select(selector)
-        if content_el:
-            self._logger.error(
-                f"Couldn't extract the content URL from {url}, datatype was {info.post_type.name}"
+        # make safe selector object
+        sel = generate_safe_selector(dom)
+
+        # if any line fails, the entire function fails, therefore,
+        # this can all exist in a try/catch block
+        try:
+            # getting the actual content of the page
+            info.content_url = sel(selector).get(attribute, None)  # type: ignore
+
+            # getting the author
+            info.author = (
+                sel(Post.AUTHOR_SEL[0]).get(Post.AUTHOR_SEL[1], None).replace(" ", "")  # type: ignore
             )
-            return None
 
-        # getting the content url
-        info.content_url = canonical_el[0].get(attribute, None)  # type: ignore
+            # getting the icon of the author
+            info.icon_url = sel(Post.ICON_SEL[0]).get(Post.ICON_SEL[1], None)  # type: ignore
 
-        # checking if the content_url is not None
-        if not info.content_url:
+            # getting the number of likes
+            info.likes = sel(Post.LIKES_SEL).text
+
+            # getting the number of comments
+            info.comments = sel(Post.COMMENTS_SEL).text
+        except RuntimeError as reason:
+            # better exception handling
             self._logger.error(
-                f"Couldn't extract the content url from {url}, datatype was {info.post_type.name}"
+                "Failure to parse %s from %s, cannot proceed. %s",
+                info.post_type.name,
+                url,
+                reason,
+                exc_info=True,
             )
-            return None
 
-        ## scraping other info about the post
-        info.username = dom.css.select(Post.AUTHOR_SEL[0])[
-            0
-        ].get(Post.AUTHOR_SEL[1], default="").replace(" ", "")
-        info.icon_url = dom.css.select("div._9JPE > a.WiQc > img.dLxH")[0].get(
-            "data-src"
-        )
-        info.likes = dom.css.select("div._9JPE > button.Cgfc > span.Y2eM > span")[
-            0
-        ].text
-        info.comments = dom.css.select("div._9JPE > button.Cgfc > span.Y2eM > span")[
-            1
-        ].text
+            # pickling the website as this is a parsing error
+            self._pickle_website(url, response.text, reason)
 
-        # validate the object
-        info.validate()
+            # raising the error
+            raise reason
+        except Exception as e:  # type: ignore
+            # logging
+            self._logger.error(
+                "Encountered error when parsing %s: %s", url, e, exc_info=True
+            )
+
+            # pickling the website as this is a parsing error
+            self._pickle_website(url, response.text, e)
+
+            # raising
+            raise e
 
         # logging
         self._logger.info(f"Retrieved from {url}: {info}")
 
         # getting the content of the post
-        info.retrieve_content()
+        content = self._retrieve_content(info.content_url)  # type: ignore
+        if content is None:
+            # pickling the website as this is a parsing error
+            self._pickle_website(url, response.text, RuntimeError(f"Error retrieving the content from {info.content_url}"))
+
+            # raising
+            raise RuntimeError(f"Error retrieving the content from {info.content_url}")
 
         # if the post is an image, crop it
         if info.post_type == PostType.PICTURE:
-            info.crop_watermark()
+            content.bytes = self._crop_convert(content.bytes, crop=True, format_="PNG")
+
+        # setting
+        info.response = content
+
+        # validate the object
+        try:
+            info.validate()
+        except RuntimeError as reason:
+            self._logger.error(
+                "Validation of the post failed, reason: %s", reason, exc_info=True
+            )
+            raise reason
 
         # returning the collected information
         return info
@@ -520,6 +567,132 @@ class FunnyBot(discord.Client):
         # returning the collected information
         return profile
 
+    def _retrieve_content(self, url: str) -> Optional[Response]:
+        """
+        Grabs the content from the iFunny CDN i.e., videos, images and gifs.
+        """
+
+        # getting the post, assuming that it is a proper link
+        response = None
+        try:
+            response = requests.get(url, allow_redirects=False, timeout=10000)
+        except Exception as e:  # type: ignore
+            # got an error
+            self._logger.error(
+                "Failed to retrieve content from %s, most likely no internet connection or a malformed url. Reason: %s",
+                url,
+                e,
+                exc_info=True,
+            )
+            return None
+
+        # do we have a body?
+        if not response.content:
+            self._logger.error(
+                f"Response from {url} does not have a content body, aborting."
+            )
+            return None
+
+        # looking at the file type from the header
+        sig = None
+        sigs = pyfsig.find_matches_for_file_header(
+            response.content, signatures=IFUNNY_SIGS
+        )
+
+        # checking the number of signatures
+        match len(sigs):
+            case 0:
+                self._logger.warn("pyfsig failed to determine the type of the file.")
+            case 1:
+                self._logger.debug(f"Signature of the file: {sigs[0]}")
+                sig = sigs[0]
+            case _:
+                self._logger.warn(
+                    f"Error discerning the file signature from the response, number of signatures: {len(sigs)}"
+                )
+                self._logger.warn(f"Picking the first signature: {sigs}")
+                sig = sigs[0]
+
+        # creating new Response object
+        resp = Response(io.BytesIO(response.content), url, sig, response)
+
+        # logging
+        self._logger.debug(resp)
+
+        # returning the response object
+        return resp
+
+    def _crop_convert(
+        self, _bytes: io.BytesIO, crop=False, format_="PNG"
+    ) -> io.BytesIO:
+        """
+        Converts a byte stream of type `io.BytesIO` to the specified format using PIL,
+        also crops the bottom 20 pixels out of the image to remove the dreaded iFunny
+        watermark.
+
+        This function does not check whether or not `_bytes` is an actual image,
+        if you try to pass in something that isn't an image, you'll most likely get an
+        error.
+        """
+
+        # new buffer
+        nbuf = io.BytesIO()
+
+        # turning bytes into an image
+        _image = Image.open(_bytes)
+
+        # checking the file type
+        if _image.format is None:
+            self._logger.warn("PIL could not discern what file type the image is.")
+
+        # cropping & the image
+        if crop:
+            _image = ImageOps.crop(_image, (0, 0, 0, 20))
+            self._logger.debug("Cropped watermark from image.")
+
+        # converting the image
+        _image.save(nbuf, format=format_)
+
+        # logging
+        self._logger.debug(f"Converted {_image.format} to {format_}.")
+
+        # cleanup
+        _bytes.close()
+        del _bytes
+        nbuf.seek(0)
+
+        # returning the new buffer
+        return nbuf
+
+    def _pickle_website(
+        self, url: str, content: str, reason: Optional[Exception] = None
+    ):
+        """
+        Transforms the website into a pickle file. Saves it in the following
+        format:
+        {
+            url: `url`,
+            reason: `reason`,
+            payload: `content`
+        }
+
+        This should be used to debug HTML parsing errors.
+        """
+
+        # creating filename
+        filename = f"{encode_url(url)}.pickle"
+
+        # creating object
+        payload = {"url": url, "reason": reason, "payload": content}
+
+        # pickling
+        with open(f"pickles/{filename}", "wb") as p:
+            _bytes = pickle.dumps(payload)
+            p.write(_bytes)
+            self._logger.info(
+                f"Pickled website for {url} as pickles/{filename}, {len(_bytes)} bytes."
+            )
+
     # --- bot events ---
 
     async def on_ready(self):
@@ -575,7 +748,6 @@ class FunnyBot(discord.Client):
                         # there was an error
                         return await message.reply(
                             content=f"Couldn't extract the username from: {url}",
-                            silent=True,
                         )
 
                     try:
@@ -587,21 +759,21 @@ class FunnyBot(discord.Client):
                             f"Replying to interaction with embed about user {user}"
                         )
 
-                        return await message.reply(embed=embed)
+                        # passing the url as content since you actually can't click this on mobile
+                        return await message.reply(embed=embed, content=url)
                     except RuntimeError as reason:
                         # there was an error
-                        return await message.reply(content=str(reason), silent=True)
+                        return await message.reply(content=str(reason))
 
                 # apparently, Python won't work properly if the case is a list of enums or comma-separated
                 case PostType.VIDEO | PostType.GIF | PostType.PICTURE | PostType.MEME:
                     # the post was a link to a non user
-                    if not (post := get_post(url)):
+                    if not (post := self._create_post(url)):
                         self._logger.error(
                             f"There was an error extracting information from {message.content}"
                         )
                         await message.reply(
                             content=f"There was an internal error embedding the post from {message.content}",
-                            silent=True,
                         )
 
                         # looping
@@ -609,7 +781,7 @@ class FunnyBot(discord.Client):
 
                     # creating an embed
                     embed = discord.Embed(
-                        title=f"Post by {sanitize_special_characters(post.username)}",
+                        title=f"Post by {sanitize_special_characters(post.author)}",
                         url=post.url,
                         description=f"{post.likes} likes.\t{post.comments} comments.",
                     )

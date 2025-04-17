@@ -3,16 +3,12 @@ This file contains an object representing a post from iFunny.
 """
 
 import io
-from typing import TYPE_CHECKING
 
 from ifunnybot.types.post_type import PostType
+from ifunnybot.types.response import Response
 from ifunnybot.core.logging import Logger
 from ifunnybot.utils.content import crop_convert, retrieve_content
-from ifunnybot.utils.urls import username_to_url
-
-# dear fucking God never remove this
-if TYPE_CHECKING:
-    from ifunnybot.types.response import Response
+from ifunnybot.utils.urls import username_to_url, remove_icon_cropping
 
 
 class Post(object):
@@ -21,39 +17,50 @@ class Post(object):
     """
 
     # this has the canonical url which has the proper datatype
-    REAL_CONTENT_SEL = ("head > meta[property='og:url']", "content")
-    AUTHOR_SEL = ("head > meta[name='author']", "content")
+    CANONICAL_SEL = ("meta[property='og:url']", "content")
 
     # these point to some CDN
-    PICTURE_SEL = ("head > meta[property='og:image']", "content")
-    VIDEO_SEL = ("head > meta[property='og:video']", "content")
-    GIF_SEL = ("head > link[rel='preload']", "href")
+    PICTURE_SEL = ("meta[property='og:image']", "content")
+    VIDEO_SEL = ("meta[property='og:video:url']", "content")
+    GIF_SEL = ("link[rel=preload][as=image]", "href")
+
+    # other metadata
+    AUTHOR_SEL = ("meta[name='author']", "content")
+    ICON_SEL = (
+        "div > a > img.MmRx.xY6H.gsQw.YDCg",
+        "data-src",
+    )
+    LIKES_SEL = "div > button:nth-child(3) > span > span"
+    COMMENTS_SEL = "div > button:nth-child(4) > span > span"
 
     def __init__(
         self,
         likes: str = "",
         comments: str = "",
-        username: str = "",
+        author: str = "",
         url: str = "",
         post_type: PostType = PostType.MEME,
         content_url: str = "",
         icon_url: str = "",
     ):
+        # computed
+        self._post_type: PostType = post_type
+        self._url: str = url
 
-        # saving fields
+        # parsed from the html
         self._likes: str = likes
         self._comments: str = comments
-        self._username: str = username
-        self._url: str = url
-        self._post_type: PostType = post_type
+        self._author: str = author
         self._content_url: str = content_url
-        self._icon_url: str = icon_url
-        self._content: Response = None  # type: ignore
+        self._icon_url: str = remove_icon_cropping(icon_url)
+
+        # programmatically filled
+        self._response: Response = None  # type: ignore
 
     def __repr__(self) -> str:
-        if self._content:
-            return f"<Post: {self._post_type}@{self._url} by {self._username}, type: {self._content or 'undefined'}>"
-        return f"<Post: {self._post_type}@{self._url} by {self._username}>"
+        if self._response:
+            return f"<Post: {self._post_type}@{self._url} by {self._author}, type: {self._response or 'undefined'}>"
+        return f"<Post: {self._post_type}@{self._url} by {self._author}>"
 
     def retrieve_content(self):
         """Retrieves the content located at `self.content_url`."""
@@ -63,7 +70,7 @@ class Post(object):
 
         # saving the response as a byte array
         if resp := retrieve_content(self._content_url):
-            self._content = resp
+            self._response = resp
         else:
             Logger.error(f"Failed to retrieve content from {self._content_url}.")
 
@@ -88,11 +95,11 @@ class Post(object):
                 f"Tried to crop something that wasn't an image: {self._post_type}"
             )
 
-        self._content.bytes = crop_convert(self._content.bytes, crop=True)
+        self._response.bytes = crop_convert(self._response.bytes, crop=True)
 
     def username_to_url(self) -> str:
         """Returns the full URL of op."""
-        return username_to_url(self._username)
+        return username_to_url(self._author)
 
     def validate(self) -> bool:
         """
@@ -103,8 +110,8 @@ class Post(object):
             raise ValueError(f"likes is None or not str, was {self._likes}")
         if self._comments is None or not isinstance(self._comments, str):
             raise ValueError(f"comments is None or not str, was {self._comments}")
-        if self._username is None or not isinstance(self._username, str):
-            raise ValueError(f"username is None or not str, was {self._username}")
+        if self._author is None or not isinstance(self._author, str):
+            raise ValueError(f"username is None or not str, was {self._author}")
         if self._url is None or not isinstance(self._url, str):
             raise ValueError(f"url is None or not str, was {self._url}")
         if self._post_type is None or not isinstance(self._post_type, PostType):
@@ -115,14 +122,22 @@ class Post(object):
             raise ValueError(f"content_url is None or not str, was {self._content_url}")
         if self._icon_url is None or not isinstance(self._icon_url, str):
             raise ValueError(f"icon_url is None or not str, was {self._icon_url}")
-        if self._content is None or not isinstance(self._content, Response):
-            raise ValueError(f"content is None or not Response, was {self._content}")
+        if self._response is None or not isinstance(self._response, Response):
+            raise ValueError(f"content is None or not Response, was {self._response}")
         return True
 
     @property
     def content(self) -> io.BytesIO:
         """Returns the actual content in bytes."""
-        return self._content.bytes
+        return self._response.bytes
+
+    @property
+    def response(self) -> Response:
+        return self._response
+
+    @response.setter
+    def response(self, o: Response):
+        self._response = o
 
     @property
     def likes(self) -> str:
@@ -145,14 +160,14 @@ class Post(object):
         self._comments = str(value)
 
     @property
-    def username(self) -> str:
-        """Returns the username of the poster."""
-        return self._username
+    def author(self) -> str:
+        """Returns the author of the poster."""
+        return self._author
 
-    @username.setter
-    def username(self, value: str):
-        """Sets the number of username to `value`"""
-        self._username = str(value)
+    @author.setter
+    def author(self, value: str):
+        """Sets the number of author to `value`"""
+        self._author = str(value)
 
     @property
     def url(self) -> str:
@@ -192,4 +207,4 @@ class Post(object):
     @icon_url.setter
     def icon_url(self, value: str):
         """Sets the number of icon_url to `value`"""
-        self._icon_url = str(value)
+        self._icon_url = remove_icon_cropping(str(value))

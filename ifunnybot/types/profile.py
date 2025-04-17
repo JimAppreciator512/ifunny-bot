@@ -7,6 +7,7 @@ from typing import Optional
 
 # from ifunnybot.core.logging import Logger
 from ifunnybot.utils.content import retrieve_content, crop_convert
+from ifunnybot.utils.urls import remove_icon_cropping
 
 
 class Profile(object):
@@ -63,7 +64,7 @@ class Profile(object):
         """This removes the cropping functionality from the URL."""
         if self._icon_url is None:
             return
-        self._icon_url = self._icon_url.replace(":square,resize:100x,quality:90x75", "")
+        self._icon_url = remove_icon_cropping(self._icon_url)
 
     @property
     def username(self) -> str:
