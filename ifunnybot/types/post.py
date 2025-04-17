@@ -7,7 +7,6 @@ from typing import Optional
 
 from ifunnybot.types.post_type import PostType
 from ifunnybot.types.response import Response
-from ifunnybot.utils.content import crop_convert
 from ifunnybot.utils.urls import (
     username_to_url,
     remove_icon_cropping,
@@ -81,17 +80,6 @@ class Post(object):
 
         # this function doesn't actually do anything yet
         raise NotImplementedError("This function isn't implemented yet.")
-
-    def crop_watermark(self):
-        """Removes the iFunny watermark from images."""
-
-        # checking the post type first
-        if self._post_type != PostType.PICTURE:
-            raise TypeError(
-                f"Tried to crop something that wasn't an image: {self._post_type}"
-            )
-
-        self._response.bytes = crop_convert(self._response.bytes, crop=True)
 
     def username_to_url(self) -> str:
         """Returns the full URL of op."""

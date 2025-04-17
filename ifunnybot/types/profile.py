@@ -5,8 +5,6 @@ This file contains an object representing a profile from iFunny.
 import io
 from typing import Optional
 
-# from ifunnybot.core.logging import Logger
-from ifunnybot.utils.content import retrieve_content, crop_convert
 from ifunnybot.utils.urls import remove_icon_cropping, username_to_url
 
 
@@ -46,19 +44,6 @@ class Profile(object):
 
     def __repr__(self) -> str:
         return f"<Profile: {self._username}, {self._subscribers} subscribers, {self._features} features>"
-
-    def retrieve_icon(self) -> Optional[io.BytesIO]:
-        """
-        Retrieves the icon of the user.
-        """
-        if self._icon_url is None:
-            return None
-
-        if not (resp := retrieve_content(self._icon_url)):
-            # Logger.error(f"Couldn't retrieve the icon of user {self}")
-            return None
-
-        return crop_convert(resp.bytes, crop=False)
 
     def _remove_icon_cropping(self):
         """This removes the cropping functionality from the URL."""
