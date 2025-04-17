@@ -167,14 +167,18 @@ class FunnyBot(discord.Client):
             return None
 
         # getting the icon of the user
-        if not (image := profile.retrieve_icon()):
+        icon_response = self._retrieve_content(profile.icon_url)
+        if icon_response is None:
             reason = f"An error occurred getting {user}'s profile picture."
             self._logger.error(reason)
             raise RuntimeError(reason)
 
+        # converting the pfp to whatever format is chosen
+        converted = self._crop_convert(icon_response.bytes, crop=False, format_="PNG")
+
         # user has icon, returning it
         filename = f"{profile.username}_pfp.png"
-        file = discord.File(image, filename=filename)
+        file = discord.File(converted, filename=filename)
 
         # logging
         self._logger.info(f"Replying to interaction with file: {filename}")
