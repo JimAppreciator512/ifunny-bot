@@ -24,7 +24,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 # creating the client
-client = funny.FunnyBot(intents=intents, logger=funny.Logger, secrets=secrets)
+client = funny.FunnyBot(intents=intents, secrets=secrets)
 
 
 @client.tree.command(
