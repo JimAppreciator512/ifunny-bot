@@ -30,6 +30,8 @@ def retrieve_content(url: str) -> Optional[Response]:
     if not response:
         Logger.error(f"Did not receive a response from {url}.")
         return None
+
+    # do we have a body?
     if not response.content:
         Logger.error(f"Response from {url} does not have a content body, aborting.")
         return None

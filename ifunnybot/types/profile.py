@@ -47,7 +47,9 @@ class Profile(object):
         return f"<Profile: {self._username}, {self._subscribers} subscribers, {self._features} features>"
 
     def retrieve_icon(self) -> Optional[io.BytesIO]:
-        """Retrieves the icon of the user."""
+        """
+        Retrieves the icon of the user.
+        """
         if self._icon_url is None:
             return None
 
