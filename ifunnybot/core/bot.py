@@ -136,10 +136,13 @@ class FunnyBot(discord.Client):
         loop = asyncio.get_event_loop()
         loop.create_task(self.close())
 
-    def get_icon(self, user: str) -> "discord.File":
+    def get_icon(self, user: str) -> Optional["discord.File"]:
         """
         This function returns the target user's profile picture as a
         `discord.File` object.
+
+        If the result from this function is `None`, then the user
+        doesn't have a profile picture. It is the default one.
 
         If there are any errors, a `RuntimeError`
         is raised with the reason for the failure.
@@ -147,15 +150,14 @@ class FunnyBot(discord.Client):
 
         # getting the user's profile
         if not (profile := self.get_profile_by_name(user)):
-            reason = f"Could not find user {user} (although they may exist)"
+            reason = f"Could not find user '{user}' (the user might be shadow banned.)"
             self._logger.info(reason)
             raise RuntimeError(reason)
 
         # checking to see if this user actually has an icon
-        if profile.icon_url == IFUNNY_NO_PFP:
-            reason = f"User {user} doesn't have a profile picture."
-            self._logger.info(reason)
-            raise RuntimeError(reason)
+        if profile.icon_url is None:
+            self._logger.info(f"User {user} doesn't have a profile picture.")
+            return None
 
         # getting the icon of the user
         if not (image := profile.retrieve_icon()):
@@ -195,10 +197,13 @@ class FunnyBot(discord.Client):
         embed.set_author(
             name=sanitize_special_characters(profile.username), url=profile.profile_url
         )
-        embed.set_thumbnail(url=profile.icon_url)
         embed.set_footer(
             text=f"{profile.subscribers} subscribers, {profile.subscriptions} subscriptions, {profile.features} features"
         )
+
+        # if no icon, then don't execute this line
+        if profile.icon_url is not None:
+            embed.set_thumbnail(url=profile.icon_url)
 
         # logging
         self._logger.info(f"Replying to interaction with embed about: {profile}")
@@ -315,7 +320,7 @@ class FunnyBot(discord.Client):
         # testing the response code
         if response.status_code != 200:
             # do something here
-            self._logger.error(f"No such user at {url} exists.")
+            self._logger.error(f"No such user {username} exists.")
             return None
 
         # transforming the response into something useable

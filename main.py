@@ -41,7 +41,11 @@ async def icon(interaction: discord.Interaction, user_: str):
         icon_ = client.get_icon(user_)
 
         # returning the image
-        return await interaction.followup.send(file=icon_)
+        if icon_ is not None:
+            return await interaction.followup.send(file=icon_)
+        return await interaction.followup.send(
+            content=f"User {user_} doesn't have a profile picture."
+        )
     except RuntimeError as reason:
         return await interaction.followup.send(content=str(reason), ephemeral=True)
 
