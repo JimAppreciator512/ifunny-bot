@@ -259,7 +259,7 @@ class FunnyBot(discord.Client):
         )
 
         # create the filename
-        filename = create_filename(post)
+        filename = encode_url(post.content_url)
 
         # forming the file extension
         extension = ""
