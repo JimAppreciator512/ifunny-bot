@@ -4,16 +4,19 @@ This file contains the bot object.
 
 import io
 import pickle
-from typing import Tuple, TYPE_CHECKING, Optional
+import asyncio
+from datetime import datetime
+from typing import Tuple, Optional
 
 import pyfsig
-import asyncio
 import discord
 import requests
 from discord import app_commands
 from bs4 import BeautifulSoup as soup
 from PIL import Image, ImageOps
 
+from ifunnybot.core.configuration import Configuration
+from ifunnybot.core.logging import create_logger
 from ifunnybot.data.headers import Headers
 from ifunnybot.types.post import Post
 from ifunnybot.types.mode import Mode
@@ -33,10 +36,6 @@ from ifunnybot.utils.urls import (
     username_to_url,
 )
 
-if TYPE_CHECKING:
-    # importing this as a type
-    import logging
-
 
 class FunnyBot(discord.Client):
     """
@@ -47,19 +46,24 @@ class FunnyBot(discord.Client):
         self,
         *,
         intents: discord.Intents,
-        logger: "logging.Logger",
         secrets: Secrets,
         mode: Mode = Mode.PRODUCTION,
+        log_name: str = f"{int(datetime.utcnow().timestamp())}-funnybot.log",
+        configuration: Configuration = Configuration(),
     ) -> None:
         super().__init__(intents=intents)
 
         # saving variables
-        self._logger = logger  # saving the reference to the logger
+        self._logger = create_logger(f"{configuration.log_location}/{log_name}")
         self._tree = app_commands.CommandTree(
             self
         )  # the tree variable holds slash commands
         self._mode = mode
+
+        # configuration
+        self._log_file = log_name
         self._secrets = secrets
+        self._conf = configuration
         self._guild: discord.Object = discord.Object(
             id=self._secrets.guild_id, type=discord.abc.GuildChannel
         )
@@ -94,6 +98,26 @@ class FunnyBot(discord.Client):
                 self._logger.info(f"Published {len(commands)} commands.")
 
     # --- getters & setters ---
+
+    @property
+    def pickles_dir(self) -> str:
+        """Returns the directory where pickle objects are stored."""
+        return self._conf.pickle_location
+
+    @property
+    def logs_dir(self) -> str:
+        """Returns the directory where the logs are stored."""
+        return self._conf.log_location
+
+    @property
+    def image_export_format(self) -> str:
+        """Returns the default image export format used for icons and pictures."""
+        return self._conf.image_format
+
+    @property
+    def log_file(self) -> str:
+        """Returns the path to the currently used log file."""
+        return f"{self._conf.log_location}/{self._log_file}"
 
     def set_mode(self, mode: Mode):
         """
@@ -807,11 +831,11 @@ class FunnyBot(discord.Client):
         payload = {"url": url, "reason": reason, "payload": content}
 
         # pickling
-        with open(f"pickles/{filename}", "wb") as p:
+        with open(f"{self.pickles_dir}/{filename}", "wb") as p:
             _bytes = pickle.dumps(payload)
             p.write(_bytes)
             self._logger.info(
-                f"Pickled website for {url} as pickles/{filename}, {len(_bytes)} bytes."
+                f"Pickled website for {url} as {self.pickles_dir}/{filename}, {len(_bytes)} bytes."
             )
 
     # --- bot events ---

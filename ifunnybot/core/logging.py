@@ -1,36 +1,30 @@
 import logging
 import sys
-from datetime import datetime
 
 
-class HighPassFilter(logging.Filter):
-    def __init__(self, level):
-        self.level = level
+def create_logger(filename: str, name: str = "FunnyBot") -> logging.Logger:
+    """
+    Creates a logger for whatever (primarily for the bot).
+    """
+    # creating a Logger
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
 
-    def filter(self, record):
-        return record.levelno >= self.level
+    # creating formatter
+    fmt = logging.Formatter("%(asctime)s - %(name)s - %(levelname)-7s: %(message)s")
 
+    # stdout handler
+    std = logging.StreamHandler(sys.stdout)
+    std.setFormatter(fmt)
+    std.setLevel(logging.DEBUG)
 
-# filename
-filename = f"logs/{int(datetime.utcnow().timestamp())}-funnybot.log"
+    # file handler
+    fd = logging.FileHandler(filename, mode="w")
+    fd.setFormatter(fmt)
+    fd.setLevel(logging.DEBUG)
 
-# creating a Logger
-Logger = logging.getLogger("FunnyBot")
-Logger.setLevel(logging.DEBUG)
+    # adding handlers
+    logger.addHandler(std)
+    logger.addHandler(fd)
 
-# creating formatter
-fmt = logging.Formatter("%(asctime)s - %(name)s - %(levelname)-7s: %(message)s")
-
-# stdout handler
-std = logging.StreamHandler(sys.stdout)
-std.setFormatter(fmt)
-std.setLevel(logging.DEBUG)
-
-# file handler
-fd = logging.FileHandler(filename, mode="w")
-fd.setFormatter(fmt)
-fd.setLevel(logging.INFO)
-
-# adding handlers
-Logger.addHandler(std)
-Logger.addHandler(fd)
+    return logger
