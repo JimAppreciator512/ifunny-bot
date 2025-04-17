@@ -20,6 +20,15 @@ class Post(object):
     Represents a post on iFunny.
     """
 
+    # this has the canonical url which has the proper datatype
+    REAL_CONTENT_SEL = ("head > meta[property='og:url']", "content")
+    AUTHOR_SEL = ("head > meta[name='author']", "content")
+
+    # these point to some CDN
+    PICTURE_SEL = ("head > meta[property='og:image']", "content")
+    VIDEO_SEL = ("head > meta[property='og:video']", "content")
+    GIF_SEL = ("head > link[rel='preload']", "href")
+
     def __init__(
         self,
         likes: str = "",
@@ -75,10 +84,9 @@ class Post(object):
 
         # checking the post type first
         if self._post_type != PostType.PICTURE:
-            Logger.error(
+            raise TypeError(
                 f"Tried to crop something that wasn't an image: {self._post_type}"
             )
-            return
 
         self._content.bytes = crop_convert(self._content.bytes, crop=True)
 

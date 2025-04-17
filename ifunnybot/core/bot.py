@@ -11,7 +11,7 @@ from discord import app_commands
 from bs4 import BeautifulSoup as soup
 
 from ifunnybot.data.headers import Headers
-from ifunnybot.core.get_post import get_post
+from ifunnybot.types.post import Post
 from ifunnybot.types.mode import Mode
 from ifunnybot.types.secrets import Secrets
 from ifunnybot.types.profile import Profile
@@ -22,7 +22,6 @@ from ifunnybot.utils.urls import (
     get_datatype,
     get_username_from_url,
     username_to_url,
-    IFUNNY_NO_PFP,
 )
 
 if TYPE_CHECKING:
@@ -229,7 +228,7 @@ class FunnyBot(discord.Client):
         url = url[0]
 
         # got a valid link, getting the post information
-        if not (post := get_post(url)):
+        if not (post := self._create_post(url)):
             self._logger.error(f"There was an error extracting information from {link}")
             raise RuntimeError(
                 f"There was an internal error embedding the post from {link}"
@@ -275,7 +274,7 @@ class FunnyBot(discord.Client):
 
     def get_profile_by_name(self, username: str, _headers=Headers) -> Optional[Profile]:
         """Get's a user's profile by username"""
-        return self._get_profile(username, _headers=_headers)
+        return self._create_profile(username, _headers=_headers)
 
     def get_profile_by_url(self, url: str, _headers=Headers) -> Optional[Profile]:
         """Get's a user's profile by url"""
@@ -287,9 +286,145 @@ class FunnyBot(discord.Client):
             self._logger.error(reason)
             raise LookupError(reason)
 
-        return self._get_profile(username, _headers=_headers)
+        return self._create_profile(username, _headers=_headers)
 
-    def _get_profile(self, username: str, _headers=Headers) -> Optional[Profile]:
+    # --- internal functions, mainly dealing with web scraping ---
+
+    def _create_post(self, url: str, _headers=Headers) -> Optional[Post]:
+        """
+        This actually makes a `Profile` object by webscraping.
+
+        If the error is something the client would want to know i.e., a user
+        doesn't exist anymore. Then, a `RuntimeError` will be raised with
+        the reason why. Otherwise, any failures will be returned as `None`,
+        indicating some type of internal failure.
+        """
+
+        # getting the post, assuming that it is a proper link
+        response = None
+        try:
+            response = requests.get(
+                url, headers=_headers, allow_redirects=False, timeout=10000
+            )
+        except Exception as e:
+            self._logger.error(
+                f"There was an exception making a GET request to {url}: {e}"
+            )
+            return None
+
+        # what did we get from the website?
+        match response.status_code:
+            case _ if response.status_code > 200:
+                # good
+                self._logger.debug(
+                    f"Received a response from the server: {response.status_code}"
+                )
+            case _ if response.status_code > 400:
+                # post was taken down :(
+                self._logger.error(
+                    f"There was an error making the HTTP request to {url}"
+                )
+                return None
+            case _ if response.status_code > 500:
+                # iFunny fucked up
+                self._logger.error(
+                    f"Server didn't like the request, returned {response.status_code}"
+                )
+                return None
+
+        # transforming the response into something useable
+        dom = soup(response.text, "html.parser")
+        if not dom.css:
+            self._logger.fatal(
+                "There was an internal error with BeautifulSoup, cannot use CSS selectors"
+            )
+            return None
+
+        ## the response was OK, now scraping information
+        info = Post()
+
+        # saving the url
+        info.url = url
+
+        # pulling the data type from the url
+        canonical_el = dom.css.select(Post.REAL_CONTENT_SEL[0])
+        if canonical_el is None:
+            self._logger.error("Couldn't find the canonical URL of the post. Aborting.")
+            return None
+
+        # grabbing the datatype
+        canonical_url = canonical_el[0].get(Post.REAL_CONTENT_SEL[1], None)
+        info.post_type = get_datatype(canonical_url)  # type: ignore
+        if info.post_type is None:
+            self._logger.error(
+                f"Failed to extract datatype from canonical url: {canonical_url}"
+            )
+            return None
+
+        # logging
+        self._logger.info(f"Found {info.post_type.name} at {url}")
+
+        # get the content based on the datatype
+        selector, attribute = None, None
+        match info.post_type:
+            case PostType.PICTURE:
+                (selector, attribute) = Post.PICTURE_SEL
+            case PostType.VIDEO:
+                (selector, attribute) = Post.VIDEO_SEL
+            case PostType.GIF:
+                (selector, attribute) = Post.GIF_SEL
+            case _:
+                self._logger.error(
+                    f"Encountered bad datatype when parsing {url} was {info.post_type.name}"
+                )
+                return None
+
+        # getting the element
+        content_el = dom.css.select(selector)
+        if content_el:
+            self._logger.error(
+                f"Couldn't extract the content URL from {url}, datatype was {info.post_type.name}"
+            )
+            return None
+
+        # getting the content url
+        info.content_url = canonical_el[0].get(attribute, None)  # type: ignore
+
+        # checking if the content_url is not None
+        if not info.content_url:
+            self._logger.error(
+                f"Couldn't extract the content url from {url}, datatype was {info.post_type.name}"
+            )
+            return None
+
+        ## scraping other info about the post
+        info.username = dom.css.select(Post.AUTHOR_SEL[0])[
+            0
+        ].get(Post.AUTHOR_SEL[1], default="").replace(" ", "")
+        info.icon_url = dom.css.select("div._9JPE > a.WiQc > img.dLxH")[0].get(
+            "data-src"
+        )
+        info.likes = dom.css.select("div._9JPE > button.Cgfc > span.Y2eM > span")[
+            0
+        ].text
+        info.comments = dom.css.select("div._9JPE > button.Cgfc > span.Y2eM > span")[
+            1
+        ].text
+
+        # logging
+        self._logger.info(f"Retrieved from {url}: {info}")
+
+        # getting the content of the post
+        info.retrieve_content()
+
+        # if the post is an image, crop it
+        if info.post_type == PostType.PICTURE:
+            info.crop_watermark()
+
+        # returning the collected information
+        return info
+
+    def _create_profile(self, username: str, _headers=Headers) -> Optional[Profile]:
         """
         This actually makes a `Profile` object by webscraping.
 
