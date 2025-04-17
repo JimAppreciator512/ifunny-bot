@@ -2,21 +2,28 @@
 This file contains the bot object.
 """
 
-from typing import Tuple, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING, Optional
 
+import asyncio
 import discord
+import requests
 from discord import app_commands
+from bs4 import BeautifulSoup as soup
 
-from ifunnybot.core.get_profile import (
-    get_profile_by_name,
-    get_username_from_url,
-)
+from ifunnybot.data.headers import Headers
 from ifunnybot.core.get_post import get_post
 from ifunnybot.types.mode import Mode
 from ifunnybot.types.secrets import Secrets
+from ifunnybot.types.profile import Profile
 from ifunnybot.types.post_type import PostType
-from ifunnybot.utils.urls import get_url, get_datatype
 from ifunnybot.utils.utils import sanitize_special_characters, create_filename
+from ifunnybot.utils.urls import (
+    get_url,
+    get_datatype,
+    get_username_from_url,
+    username_to_url,
+    IFUNNY_NO_PFP,
+)
 
 if TYPE_CHECKING:
     # importing this as a type
@@ -29,7 +36,12 @@ class FunnyBot(discord.Client):
     """
 
     def __init__(
-        self, *, intents: discord.Intents, logger: "logging.Logger", secrets: Secrets, mode: Mode = Mode.PRODUCTION
+        self,
+        *,
+        intents: discord.Intents,
+        logger: "logging.Logger",
+        secrets: Secrets,
+        mode: Mode = Mode.PRODUCTION,
     ) -> None:
         super().__init__(intents=intents)
 
@@ -124,6 +136,247 @@ class FunnyBot(discord.Client):
         loop = asyncio.get_event_loop()
         loop.create_task(self.close())
 
+    def get_icon(self, user: str) -> "discord.File":
+        """
+        This function returns the target user's profile picture as a
+        `discord.File` object.
+
+        If there are any errors, a `RuntimeError`
+        is raised with the reason for the failure.
+        """
+
+        # getting the user's profile
+        if not (profile := self.get_profile_by_name(user)):
+            reason = f"Could not find user {user} (although they may exist)"
+            self._logger.info(reason)
+            raise RuntimeError(reason)
+
+        # checking to see if this user actually has an icon
+        if profile.icon_url == IFUNNY_NO_PFP:
+            reason = f"User {user} doesn't have a profile picture."
+            self._logger.info(reason)
+            raise RuntimeError(reason)
+
+        # getting the icon of the user
+        if not (image := profile.retrieve_icon()):
+            reason = f"An error occurred getting {user}'s profile picture."
+            self._logger.error(reason)
+            raise RuntimeError(reason)
+
+        # user has icon, returning it
+        filename = f"{profile.username}_pfp.png"
+        file = discord.File(image, filename=filename)
+
+        # logging
+        self._logger.info(f"Replying to interaction with file: {filename}")
+
+        # returning the image
+        return file
+
+    def get_user(self, user: str) -> "discord.Embed":
+        """
+        This function returns the target user's profile as a
+        `discord.Embed` object.
+
+        If there are any errors, a `RuntimeError`
+        is raised with the reason for the failure.
+        """
+
+        # getting the user's profile
+        if not (profile := self.get_profile_by_name(user)):
+            reason = f"Could not find user '{user}' (the user might be shadow banned.)"
+            self._logger.info(reason)
+            raise RuntimeError(reason)
+
+        # creating an embed for the profile
+        embed = discord.Embed(description=profile.description)
+
+        # adding info
+        embed.set_author(
+            name=sanitize_special_characters(profile.username), url=profile.profile_url
+        )
+        embed.set_thumbnail(url=profile.icon_url)
+        embed.set_footer(
+            text=f"{profile.subscribers} subscribers, {profile.subscriptions} subscriptions, {profile.features} features"
+        )
+
+        # logging
+        self._logger.info(f"Replying to interaction with embed about: {profile}")
+
+        # replying to interaction
+        return embed
+
+    def get_post(self, link: str) -> Tuple["discord.Embed", "discord.File"]:
+        """
+        This function returns the target user's post as a tuple of a `discord.Embed`
+        and `discord.File` object.
+
+        If there are any errors, a `RuntimeError` is raised with the reason for the failure.
+        """
+
+        # testing if the interaction contains an iFunny link
+        if not (url := get_url(link)):
+            # logging & returning
+            self._logger.info(f"Received an improper link: {link}")
+            raise RuntimeError(f"The url {link}, isn't a proper iFunny url.")
+
+        # simple hack, my precious
+        url = url[0]
+
+        # got a valid link, getting the post information
+        if not (post := get_post(url)):
+            self._logger.error(f"There was an error extracting information from {link}")
+            raise RuntimeError(
+                f"There was an internal error embedding the post from {link}"
+            )
+
+        # creating an embed
+        embed = discord.Embed(
+            title=f"Post by {sanitize_special_characters(post.username)}",
+            url=post.url,
+            description=f"{post.likes} likes.\t{post.comments} comments.",
+        )
+        embed.set_author(
+            name=sanitize_special_characters(post.username),
+            url=post.username_to_url(),
+            icon_url=post.icon_url,
+        )
+
+        # create the filename
+        filename = create_filename(post)
+
+        # forming the file extension
+        extension = ""
+        match post.post_type:
+            case PostType.PICTURE:
+                extension = "png"
+            case PostType.VIDEO:
+                extension = "mp4"
+            case PostType.GIF:
+                extension = "gif"
+            case _:
+                # this should never happen
+                self._logger.error(
+                    f"Tried to make extension of invalid post type: {post.post_type}"
+                )
+
+        # creating the file object
+        file = discord.File(post.content, filename=f"{filename}.{extension}")
+
+        # logging
+        self._logger.info(f"Replying to interaction with '{filename}.{extension}'")
+
+        return (embed, file)
+
+    def get_profile_by_name(self, username: str, _headers=Headers) -> Optional[Profile]:
+        """Get's a user's profile by username"""
+        return self._get_profile(username, _headers=_headers)
+
+    def get_profile_by_url(self, url: str, _headers=Headers) -> Optional[Profile]:
+        """Get's a user's profile by url"""
+
+        # get the username from the url
+        username = get_username_from_url(url)
+        if username is None:
+            reason = f"Could not extract the user from {url}."
+            self._logger.error(reason)
+            raise LookupError(reason)
+
+        return self._get_profile(username, _headers=_headers)
+
+    def _get_profile(self, username: str, _headers=Headers) -> Optional[Profile]:
+        """
+        This actually makes a `Profile` object by webscraping.
+
+        If the error is something the client would want to know i.e., a user
+        doesn't exist anymore. Then, a `RuntimeError` will be raised with
+        the reason why. Otherwise, any failures will be returned as `None`,
+        indicating some type of internal failure.
+        """
+
+        # creating the url of the user
+        url = username_to_url(username)
+
+        # creating the profile object
+        profile = Profile(username=username)
+
+        # getting the post, assuming that it is a proper link
+        response = None
+        try:
+            response = requests.get(
+                url, headers=_headers, allow_redirects=False, timeout=10000
+            )
+        except Exception as e:
+            self._logger.error(
+                f"There was an exception making a GET request to {url}: {e}"
+            )
+            return None
+
+        # testing the response code
+        if response.status_code != 200:
+            # do something here
+            self._logger.error(f"No such user at {url} exists.")
+            return None
+
+        # transforming the response into something useable
+        dom = soup(response.text, "html.parser")
+        if not dom.css:
+            self._logger.fatal(
+                "There was an internal error with BeautifulSoup, cannot use CSS selectors"
+            )
+            return None
+
+        ## scraping information
+
+        # get the actual username
+        if username_el := dom.css.select(Profile.USERNAME_SEL):
+            # the user has a pfp
+            profile.username = username_el[0].text.strip()
+        else:
+            # the user does not have a pfp
+            self._logger.error(
+                f"Could't get the real username from user {username}'s profile"
+            )
+
+        # getting the profile picture
+        if icon_el := dom.css.select(Profile.ICON_SEL):
+            # the user has a pfp
+            profile.icon_url = icon_el[0].get("src")  # type: ignore
+        else:
+            # the user does not have a pfp
+            self._logger.info(f"User {username} doesn't have a pfp.")
+
+        # getting the description
+        if description_el := dom.css.select(Profile.DESCRIPTION_SEL):
+            # the user has a description
+            profile.description = description_el[0].text.strip()
+        else:
+            profile.description = "No description."
+
+        # getting the subscriber count
+        if subscriber_el := dom.css.select(Profile.SUBSCRIBERS_SEL):
+            profile.subscribers = subscriber_el[0].text.strip().split(" ")[0]
+        else:
+            profile.subscribers = "No subscribers."
+
+        # getting the subscriptions
+        if subscription_el := dom.css.select(Profile.SUBSCRIPTIONS_SEL):
+            profile.subscriptions = subscription_el[0].text.strip().split(" ")[0]
+        else:
+            profile.subscriptions = "No subscriptions."
+
+        # getting the features
+        if features_el := dom.css.select(Profile.FEATURES_SEL):
+            profile.features = features_el[0].text.strip().split(" ")[0]
+        else:
+            profile.features = "No features."
+
+        # logging
+        self._logger.info(f"Retrieved from {url}: {profile}")
+
+        # returning the collected information
+        return profile
+
     # --- bot events ---
 
     async def on_ready(self):
@@ -197,7 +450,7 @@ class FunnyBot(discord.Client):
                         return await message.reply(content=str(reason), silent=True)
 
                 # apparently, Python won't work properly if the case is a list of enums or comma-separated
-                case PostType.VIDEO | PostType.GIF | PostType.PICTURE:
+                case PostType.VIDEO | PostType.GIF | PostType.PICTURE | PostType.MEME:
                     # the post was a link to a non user
                     if not (post := get_post(url)):
                         self._logger.error(
@@ -231,7 +484,6 @@ class FunnyBot(discord.Client):
                             extension = "mp4"
                         case PostType.GIF:
                             extension = "gif"
-                        # this fails whenever this receives a PostType of MEME or USER
                         case _:
                             # this should never happen
                             self._logger.error(
@@ -254,127 +506,3 @@ class FunnyBot(discord.Client):
                         f"Could not discern the type of the post, silently aborting. Type was {get_datatype(url)}"
                     )
                     return None
-
-    # --- bot functions ---
-
-    def get_icon(self, user: str) -> "discord.File":
-        """
-        This function returns the target user's profile picture as a
-        `discord.File` object.
-
-        If there are any errors, a `RuntimeError`
-        is raised with the reason for the failure.
-        """
-
-        # getting the user's profile
-        if not (profile := get_profile_by_name(user)):
-            reason = f"Could not find user {user} (although they may exist)"
-            self._logger.info(reason)
-            raise RuntimeError(reason)
-
-        # getting the icon of the user
-        if not (image := profile.retrieve_icon()):
-            reason = f"An error occurred getting {user}'s profile picture."
-            self._logger.info(reason)
-            raise RuntimeError(reason)
-
-        # user has icon, returning it
-        filename = f"{profile.username}_pfp.png"
-        file = discord.File(image, filename=filename)
-
-        # logging
-        self._logger.info(f"Replying to interaction with file: {filename}")
-
-        # returning the image
-        return file
-
-    def get_user(self, user: str) -> "discord.Embed":
-        """
-        This function returns the target user's profile as a
-        `discord.Embed` object.
-
-        If there are any errors, a `RuntimeError`
-        is raised with the reason for the failure.
-        """
-
-        # getting the user's profile
-        if not (profile := get_profile_by_name(user)):
-            reason = f"Could not find user '{user}' (the user might be shadow banned.)"
-            self._logger.info(reason)
-            raise RuntimeError(reason)
-
-        # creating an embed for the profile
-        embed = discord.Embed(description=profile.description)
-
-        # adding info
-        embed.set_author(
-            name=sanitize_special_characters(profile.username), url=profile.profile_url
-        )
-        embed.set_thumbnail(url=profile.icon_url)
-        embed.set_footer(
-            text=f"{profile.subscribers} subscribers, {profile.subscriptions} subscriptions, {profile.features} features"
-        )
-
-        # logging
-        self._logger.info(f"Replying to interaction with embed about: {profile}")
-
-        # replying to interaction
-        return embed
-
-    def get_post(self, link: str) -> Tuple["discord.Embed", "discord.File"]:
-        """
-        This function returns the target user's post as a tuple of a `discord.Embed`
-        and `discord.File` object.
-
-        If there are any errors, a `RuntimeError` is raised with the reason for the failure.
-        """
-
-        # testing if the interaction contains an iFunny link
-        if not (url := get_url(link)):
-            # logging & returning
-            self._logger.info(f"Received an improper link: {link}")
-            raise RuntimeError(f"The url {link}, isn't a proper iFunny url.")
-
-        # simple hack, my precious
-        url = url[0]
-
-        # got a valid link, getting the post information
-        if not (post := get_post(url)):
-            self._logger.error(f"There was an error extracting information from {link}")
-            raise RuntimeError(
-                f"There was an internal error embedding the post from {link}"
-            )
-
-        # creating an embed
-        embed = discord.Embed(
-            title=f"Post by {sanitize_special_characters(post.username)}",
-            url=post.url,
-            description=f"{post.likes} likes.\t{post.comments} comments.",
-        )
-        embed.set_author(name="", icon_url=post.icon_url)
-
-        # create the filename
-        filename = create_filename(post)
-
-        # forming the file extension
-        extension = ""
-        match post.post_type:
-            case PostType.PICTURE:
-                extension = "png"
-            case PostType.VIDEO:
-                extension = "mp4"
-            case PostType.GIF:
-                extension = "gif"
-            case _:
-                # this should never happen
-                self._logger.error(
-                    f"Tried to make extension of invalid post type: {post.post_type}"
-                )
-
-        # creating the file object
-        file = discord.File(post.content, filename=f"{filename}.{extension}")
-
-        # logging
-        self._logger.info(f"Replying to interaction with '{filename}.{extension}'")
-
-        return (embed, file)
