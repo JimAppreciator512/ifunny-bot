@@ -67,11 +67,6 @@ class Profile(object):
         self._username = str(value)
 
     @property
-    def profile_url(self) -> str:
-        """Returns the URL of the profile."""
-        return f"https://ifunny.co/user/{self._username}"
-
-    @property
     def subscribers(self) -> str:
         """Returns the number of subscribers the user has."""
         return self._subscribers
