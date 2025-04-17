@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
+from ifunnybot.types.parsing_exception import ParsingError
+
 if TYPE_CHECKING:
     from bs4 import BeautifulSoup, Tag
 
@@ -32,7 +34,7 @@ def generate_safe_selector(
 
         # checking the results
         if len(elements) == 0:
-            raise RuntimeError(f"Couldn't find any tags matching: {selector}")
+            raise ParsingError(f"Couldn't find any tags matching: {selector}")
 
         # unpack
         return elements[0]
