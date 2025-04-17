@@ -13,14 +13,22 @@ from ifunnybot.utils.content import crop_convert, retrieve_content
 if TYPE_CHECKING:
     from ifunnybot.types.response import Response
 
+
 class Post(object):
     """
     Represents a post on iFunny.
     """
 
-    def __init__(self, likes: str = "", comments: str = "", username: str = "",
-                 url: str = "", post_type: PostType = PostType.MEME,
-                 content_url:  str = "", icon_url: str = ""): 
+    def __init__(
+        self,
+        likes: str = "",
+        comments: str = "",
+        username: str = "",
+        url: str = "",
+        post_type: PostType = PostType.MEME,
+        content_url: str = "",
+        icon_url: str = "",
+    ):
 
         # saving fields
         self._likes: str = likes
@@ -30,7 +38,7 @@ class Post(object):
         self._post_type: PostType = post_type
         self._content_url: str = content_url
         self._icon_url: str = icon_url
-        self._content: Response = None
+        self._content: Response = None  # type: ignore
 
     def __repr__(self) -> str:
         if self._content:
@@ -44,7 +52,7 @@ class Post(object):
         Logger.info(f"Retrieving content from CDN: {self._content_url}")
 
         # saving the response as a byte array
-        if (resp := retrieve_content(self._content_url)):
+        if resp := retrieve_content(self._content_url):
             self._content = resp
         else:
             Logger.error(f"Failed to retrieve content from {self._content_url}.")
@@ -67,7 +75,9 @@ class Post(object):
 
         # checking the post type first
         if self._post_type != PostType.PICTURE:
-            Logger.error(f"Tried to crop something that wasn't an image: {self._post_type}")
+            Logger.error(
+                f"Tried to crop something that wasn't an image: {self._post_type}"
+            )
             return
 
         self._content.bytes = crop_convert(self._content.bytes, crop=True)
@@ -145,4 +155,3 @@ class Post(object):
     def icon_url(self, value: str):
         """Sets the number of icon_url to `value`"""
         self._icon_url = str(value)
-
