@@ -3,6 +3,8 @@ The main file for the bot.
 """
 
 import os
+import sys
+import signal
 import argparse
 
 import discord
@@ -81,12 +83,17 @@ async def post(interaction: discord.Interaction, link: str):
 
 # setup argparse
 parser = argparse.ArgumentParser(description="A discord bot to embed iFunny posts.")
-parser.add_argument(
-    "-d",
-    "--development",
-    action="store_true",
-    dest="dev"
-)
+parser.add_argument("-d", "--development", action="store_true", dest="dev")
+
+
+# signal handler
+def handler(signal, frame, bot: funny.FunnyBot):
+    # killing the bot
+    bot.terminate(signal, frame)
+
+    # terminating the program
+    sys.exit(0)
+
 
 # main loop
 if __name__ == "__main__":
@@ -96,6 +103,10 @@ if __name__ == "__main__":
     # setting potential development mode
     if args.dev is not None:
         client.set_mode(funny.Mode.DEVELOPMENT)
+
+    # signal handler
+    signal.signal(signal.SIGINT, lambda sig, frame: handler(sig, frame, client))
+    signal.signal(signal.SIGTERM, lambda sig, frame: handler(sig, frame, client))
 
     # running the bot
     client.run(secrets.token)

@@ -112,6 +112,18 @@ class FunnyBot(discord.Client):
         """
         return self._tree
 
+    # --- bot functions ---
+
+    def terminate(self, signal, frame):
+        """Gracefully terminates the bot from a synchronous context."""
+
+        # logging
+        self._logger.info(f"Received signal {signal}, shutting down bot.")
+
+        # hooking into the event loop (need to call, async from sync func)
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.close())
+
     # --- bot events ---
 
     async def on_ready(self):
