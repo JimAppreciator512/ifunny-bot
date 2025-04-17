@@ -11,7 +11,7 @@ def create_logger(filename: str, name: str = "FunnyBot") -> logging.Logger:
     logger.setLevel(logging.DEBUG)
 
     # creating formatter
-    fmt = logging.Formatter("%(asctime)s - %(name)s - %(funcName)s:%(lineno)d - %(levelname)-7s: %(message)s")
+    fmt = logging.Formatter("%(asctime)s - %(name)s - %(funcName)25s:%(lineno)4d - %(levelname)-7s: %(message)s")
 
     # stdout handler
     std = logging.StreamHandler(sys.stdout)
