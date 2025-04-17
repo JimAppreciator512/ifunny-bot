@@ -7,7 +7,14 @@ from ifunnybot.data.headers import Headers
 from ifunnybot.types.post import Post
 from ifunnybot.types.post_type import PostType
 from ifunnybot.utils.urls import get_datatype
-from ifunnybot.utils.html import html_selectors
+
+# CSS selectors for the content of the post
+html_selectors = {
+    PostType.PICTURE: ["div._3ZEF > img", "src"],
+    PostType.VIDEO: ["div._3ZEF > div > video", "data-src"],
+    PostType.GIF: ['meta > link[as="image"]', "href"],
+}
+
 
 def get_post(url: str, _headers=Headers) -> Optional[Post]:
 
@@ -30,13 +37,17 @@ def get_post(url: str, _headers=Headers) -> Optional[Post]:
             return None
         case _ if response.status_code > 500:
             # iFunny fucked up
-            Logger.error(f"Server didn't like the request, returned {response.status_code}")
+            Logger.error(
+                f"Server didn't like the request, returned {response.status_code}"
+            )
             return None
 
     # transforming the response into something useable
     dom = soup(response.text, "html.parser")
     if not dom.css:
-        Logger.fatal(f"There was an internal error with BeautifulSoup, cannot use CSS selectors")
+        Logger.fatal(
+            f"There was an internal error with BeautifulSoup, cannot use CSS selectors"
+        )
         return None
 
     ## the response was OK, now scraping information
@@ -88,7 +99,6 @@ def get_post(url: str, _headers=Headers) -> Optional[Post]:
                 Logger.debug(f"Post at {url} is not {_type}")
                 continue
 
-            
             # breaking early because we found the correct selector
             Logger.debug(f"Post at {url} is {_type}")
             info.post_type = _type
@@ -102,7 +112,9 @@ def get_post(url: str, _headers=Headers) -> Optional[Post]:
         return None
 
     ## scraping other info about the post
-    info.username = dom.css.select("div._9JPE > a.WiQc > span.IfB6")[0].text.replace(" ", "")
+    info.author = dom.css.select("div._9JPE > a.WiQc > span.IfB6")[0].text.replace(
+        " ", ""
+    )
     info.icon_url = dom.css.select("div._9JPE > a.WiQc > img.dLxH")[0].get("data-src")
     info.likes = dom.css.select("div._9JPE > button.Cgfc > span.Y2eM > span")[0].text
     info.comments = dom.css.select("div._9JPE > button.Cgfc > span.Y2eM > span")[1].text
@@ -119,4 +131,3 @@ def get_post(url: str, _headers=Headers) -> Optional[Post]:
 
     # returning the collected information
     return info
-
