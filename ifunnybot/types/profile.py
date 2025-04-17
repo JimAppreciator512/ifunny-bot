@@ -2,7 +2,6 @@
 This file contains an object representing a profile from iFunny.
 """
 
-import io
 from typing import Optional
 
 from ifunnybot.utils.urls import remove_icon_cropping, username_to_url
