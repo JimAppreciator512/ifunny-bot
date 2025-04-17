@@ -28,7 +28,7 @@ def get_content_locator(url: str) -> Optional[str]:
 
 def encode_url(url: str) -> str:
     """Encodes a URL in base64."""
-    return base64.b64encode(url.encode('utf-8')).decode("utf-8")
+    return base64.urlsafe_b64encode(url.encode("utf-8")).decode("utf-8")
 
 
 def remove_icon_cropping(url: str) -> str:
