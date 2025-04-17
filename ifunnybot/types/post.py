@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from ifunnybot.types.post_type import PostType
 from ifunnybot.core.logging import Logger
 from ifunnybot.utils.content import crop_convert, retrieve_content
+from ifunnybot.utils.urls import username_to_url
 
 # dear fucking God never remove this
 if TYPE_CHECKING:
@@ -81,6 +82,10 @@ class Post(object):
             return
 
         self._content.bytes = crop_convert(self._content.bytes, crop=True)
+
+    def username_to_url(self) -> str:
+        """Returns the full URL of op."""
+        return username_to_url(self._username)
 
     @property
     def content(self) -> io.BytesIO:

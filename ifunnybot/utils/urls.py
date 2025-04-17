@@ -13,7 +13,10 @@ IFUNNY_DATATYPE = r"(picture|video|gif|meme|user)"
 # constants
 IFUNNY_NO_PFP = "https://play-lh.googleusercontent.com/Wr4GnjKU360bQEFoVimXfi-OlA6To9DkdrQBQ37CMdx1Kx5gRE07MgTDh1o7lAPV1ws"
 
-## function shorthands
+
+def username_to_url(username: str) -> str:
+    """Converts a username into a proper iFunny URL"""
+    return f"https://ifunny.co/user/{username}"
 
 
 def get_url(text: str) -> Optional[list[str]]:
