@@ -21,9 +21,10 @@ from ifunnybot.types.response import Response
 from ifunnybot.types.secrets import Secrets
 from ifunnybot.types.profile import Profile
 from ifunnybot.types.post_type import PostType
+from ifunnybot.types.parsing_exception import ParsingError
 from ifunnybot.data.signatures import IFUNNY_SIGS
 from ifunnybot.utils.html import generate_safe_selector
-from ifunnybot.utils.utils import sanitize_special_characters, create_filename
+from ifunnybot.utils.utils import sanitize_special_characters
 from ifunnybot.utils.urls import (
     get_url,
     get_datatype,
@@ -155,8 +156,37 @@ class FunnyBot(discord.Client):
         is raised with the reason for the failure.
         """
 
+        # the url for errors
+        url = username_to_url(user)
+
         # getting the user's profile
-        if not (profile := self.get_profile_by_name(user)):
+        try:
+            profile = self.get_profile_by_name(user)
+
+        # something happened
+        except RuntimeError as reason:
+            self._logger.error(
+                "Caught RuntimeError from self._create_post(%s), was %s",
+                url,
+                reason,
+                exc_info=True,
+            )
+            raise RuntimeError(
+                f"There was an error made with the connection to {url}, unable to GET the website."
+            )
+
+        # some weird parsing error
+        except ParsingError as reason:
+            self._logger.error(
+                "Caught ParsingError from self._create_post(%s), was %s",
+                url,
+                reason,
+                exc_info=True,
+            )
+            raise RuntimeError(f"There was an error parsing {url}.")
+
+        # if profile is None, the user is likely shadow banned
+        if profile is None:
             reason = f"Could not find user '{user}' (the user might be shadow banned.)"
             self._logger.info(reason)
             raise RuntimeError(reason)
@@ -195,8 +225,37 @@ class FunnyBot(discord.Client):
         is raised with the reason for the failure.
         """
 
+        # the url for errors
+        url = username_to_url(user)
+
         # getting the user's profile
-        if not (profile := self.get_profile_by_name(user)):
+        try:
+            profile = self.get_profile_by_name(user)
+
+        # something happened
+        except RuntimeError as reason:
+            self._logger.error(
+                "Caught RuntimeError from self._create_post(%s), was %s",
+                url,
+                reason,
+                exc_info=True,
+            )
+            raise RuntimeError(
+                f"There was an error made with the connection to {url}, unable to GET the website."
+            )
+
+        # some weird parsing error
+        except ParsingError as reason:
+            self._logger.error(
+                "Caught ParsingError from self._create_post(%s), was %s",
+                url,
+                reason,
+                exc_info=True,
+            )
+            raise RuntimeError(f"There was an error parsing {url}.")
+
+        # if profile is None, the user is likely shadow banned
+        if profile is None:
             reason = f"Could not find user '{user}' (the user might be shadow banned.)"
             self._logger.info(reason)
             raise RuntimeError(reason)
@@ -240,10 +299,35 @@ class FunnyBot(discord.Client):
         url = url[0]
 
         # got a valid link, getting the post information
-        if not (post := self._create_post(url)):
-            self._logger.error(f"There was an error extracting information from {link}")
+        try:
+            post = self._create_post(url)
+
+        # something happened
+        except RuntimeError as reason:
+            self._logger.error(
+                "Caught RuntimeError from self._create_post(%s), was %s",
+                url,
+                reason,
+                exc_info=True,
+            )
             raise RuntimeError(
-                f"There was an internal error embedding the post from {link}"
+                f"There was an error made with the connection to {link}, unable to GET the website."
+            )
+
+        # some weird parsing error
+        except ParsingError as reason:
+            self._logger.error(
+                "Caught ParsingError from self._create_post(%s), was %s",
+                url,
+                reason,
+                exc_info=True,
+            )
+            raise RuntimeError(f"There was an error parsing {link}.")
+
+        # checking if the post is None, if true, then the post was taken down/shadow banned
+        if post is None:
+            raise RuntimeError(
+                f"Couldn't embed the post at {link}. It was either taken down or incorrect."
             )
 
         # creating an embed
@@ -253,7 +337,7 @@ class FunnyBot(discord.Client):
             description=f"{post.likes} likes.\t{post.comments} comments.",
         )
         embed.set_author(
-            name=sanitize_special_characters(post.author),
+            name=post.author,
             url=post.username_to_url(),
             icon_url=post.icon_url,
         )
@@ -280,7 +364,7 @@ class FunnyBot(discord.Client):
         file = discord.File(post.content, filename=f"{filename}.{extension}")
 
         # logging
-        self._logger.info(f"Replying to interaction with '{filename}.{extension}'")
+        self._logger.info(f"Returning object: {filename}.{extension}")
 
         return (embed, file)
 
@@ -296,7 +380,7 @@ class FunnyBot(discord.Client):
         if username is None:
             reason = f"Could not extract the user from {url}."
             self._logger.error(reason)
-            raise LookupError(reason)
+            raise RuntimeError(reason)
 
         return self._create_profile(username, _headers=_headers)
 
@@ -306,10 +390,14 @@ class FunnyBot(discord.Client):
         """
         This actually makes a `Post` object by webscraping.
 
-        If the error is something the client would want to know i.e., a user
-        doesn't exist anymore. Then, a `RuntimeError` will be raised with
-        the reason why. Otherwise, any failures will be returned as `None`,
-        indicating some type of internal failure.
+        If the result is `None`, then the post doesn't exist (or the user
+        is shadow banned).
+
+        If a `ParsingError` is thrown, it means that this function failed
+        to parse the website for something.
+
+        If a `RuntimeError` is thrown, it means that something connection
+        related happened.
         """
 
         # getting the post, assuming that it is a proper link
@@ -319,30 +407,31 @@ class FunnyBot(discord.Client):
                 url, headers=_headers, allow_redirects=False, timeout=10000
             )
         except Exception as e:
-            self._logger.error(
-                f"There was an exception making a GET request to {url}: {e}"
-            )
-            return None
+            reason = f"There was an exception making a GET request to {url}: {e}"
+            self._logger.error(reason)
+            raise RuntimeError(reason)
 
         # what did we get from the website?
         match response.status_code:
-            case _ if response.status_code > 200:
-                # good
-                self._logger.debug(
-                    f"Received a response from the server: {response.status_code}"
-                )
-            case _ if response.status_code > 400:
-                # post was taken down :(
-                self._logger.error(
-                    f"There was an error making the HTTP request to {url}"
-                )
-                return None
-            case _ if response.status_code > 500:
+            case _ if response.status_code >= 500:
                 # iFunny fucked up
                 self._logger.error(
                     f"Server didn't like the request, returned {response.status_code}"
                 )
-                return None
+
+                # raising an error because something went wrong
+                raise RuntimeError(f"There was an error making the request to iFunny.")
+            case _ if response.status_code >= 400 and response.status_code < 500:
+                # post was taken down :(
+                self._logger.error(
+                    f"There was an error making the HTTP request to {url}"
+                )
+                return None  # can return None here since nothing actually went wrong
+            case _ if response.status_code >= 200 and response.status_code < 300:
+                # good
+                self._logger.debug(
+                    f"Received a response from the server: {response.status_code}"
+                )
 
         # transforming the response into something useable
         dom = soup(response.text, "html.parser")
@@ -350,7 +439,9 @@ class FunnyBot(discord.Client):
             self._logger.fatal(
                 "There was an internal error with BeautifulSoup, cannot use CSS selectors"
             )
-            return None
+            raise ParsingError(
+                "There was an internal error with BeautifulSoup, cannot use CSS selectors"
+            )
 
         # the response was OK, now scraping information
         info = Post(url=url)
@@ -365,11 +456,11 @@ class FunnyBot(discord.Client):
             self._pickle_website(
                 url,
                 response.text,
-                RuntimeError(f"Couldn't obtain the canonical url of {url}, aborting."),
+                ParsingError(f"Couldn't obtain the canonical url of {url}, aborting."),
             )
 
             # returning
-            return None
+            raise ParsingError(f"Couldn't obtain the canonical url of {url}, aborting.")
 
         # grabbing the datatype
         canonical_url = canonical_el[0].get(Post.CANONICAL_SEL[1], None)
@@ -378,7 +469,9 @@ class FunnyBot(discord.Client):
             self._logger.error(
                 f"Failed to extract datatype from canonical url: {canonical_url}"
             )
-            return None
+            raise ParsingError(
+                f"Failed to extract datatype from canonical url: {canonical_url}"
+            )
 
         # logging
         self._logger.info(f"Found {info.post_type.name} at {url}")
@@ -396,7 +489,9 @@ class FunnyBot(discord.Client):
                 self._logger.error(
                     f"Encountered bad datatype when parsing {url} was {info.post_type.name}"
                 )
-                return None
+                raise ParsingError(
+                    f"Encountered bad datatype when parsing {url} was {info.post_type.name}"
+                )
 
         # make safe selector object
         sel = generate_safe_selector(dom)
@@ -412,15 +507,17 @@ class FunnyBot(discord.Client):
                 sel(Post.AUTHOR_SEL[0]).get(Post.AUTHOR_SEL[1], None).replace(" ", "")  # type: ignore
             )
 
-            # getting the icon of the author
-            info.icon_url = sel(Post.ICON_SEL[0]).get(Post.ICON_SEL[1], None)  # type: ignore
+            # getting the icon of the author (this can fail!)
+            icon_el = dom.css.select_one(Post.ICON_SEL[0])
+            if icon_el is not None:
+                info.icon_url = icon_el.get(Post.ICON_SEL[1], None)  # type: ignore
 
             # getting the number of likes
             info.likes = sel(Post.LIKES_SEL).text
 
             # getting the number of comments
             info.comments = sel(Post.COMMENTS_SEL).text
-        except RuntimeError as reason:
+        except ParsingError as reason:
             # better exception handling
             self._logger.error(
                 "Failure to parse %s from %s, cannot proceed. %s",
@@ -451,17 +548,22 @@ class FunnyBot(discord.Client):
         self._logger.info(f"Retrieved from {url}: {info}")
 
         # getting the content of the post
-        content = self._retrieve_content(info.content_url)  # type: ignore
-        if content is None:
-            # pickling the website as this is a parsing error
-            self._pickle_website(
-                url,
-                response.text,
-                RuntimeError(f"Error retrieving the content from {info.content_url}"),
+        try:
+            content = self._retrieve_content(info.content_url)  # type: ignore
+        except RuntimeError as reason:
+            # logging
+            self._logger.error(
+                "Caught error from _retrieve_content(%s): %s",
+                info.content_url,
+                reason,
+                exc_info=True,
             )
 
+            # pickling the website as this is a parsing error
+            self._pickle_website(url, response.text, reason)
+
             # raising
-            raise RuntimeError(f"Error retrieving the content from {info.content_url}")
+            raise RuntimeError(f"Error retrieving {info.post_type.name} from {url}.")
 
         # if the post is an image, crop it
         if info.post_type == PostType.PICTURE:
@@ -486,10 +588,14 @@ class FunnyBot(discord.Client):
         """
         This actually makes a `Profile` object by webscraping.
 
-        If the error is something the client would want to know i.e., a user
-        doesn't exist anymore. Then, a `RuntimeError` will be raised with
-        the reason why. Otherwise, any failures will be returned as `None`,
-        indicating some type of internal failure.
+        If the result is `None`, then the user doesn't exist (or is likely
+        shadow banned).
+
+        If a `ParsingError` is thrown, it means that this function failed
+        to parse the website for something.
+
+        If a `RuntimeError` is thrown, it means that something connection
+        related happened.
         """
 
         # creating the url of the user
@@ -505,10 +611,9 @@ class FunnyBot(discord.Client):
                 url, headers=_headers, allow_redirects=False, timeout=10000
             )
         except Exception as e:
-            self._logger.error(
-                f"There was an exception making a GET request to {url}: {e}"
-            )
-            return None
+            reason = f"There was an exception making a GET request to {url}: {e}"
+            self._logger.error(reason)
+            raise RuntimeError(reason)
 
         # testing the response code
         if response.status_code != 200:
@@ -522,19 +627,20 @@ class FunnyBot(discord.Client):
             self._logger.fatal(
                 "There was an internal error with BeautifulSoup, cannot use CSS selectors"
             )
-            return None
+            raise ParsingError(
+                "There was an internal error with BeautifulSoup, cannot use CSS selectors"
+            )
 
         ## scraping information
 
         # get the actual username
         if username_el := dom.css.select(Profile.USERNAME_SEL):
-            # the user has a pfp
             profile.username = username_el[0].text.strip()
         else:
-            # the user does not have a pfp
-            self._logger.error(
-                f"Could't get the real username from user {username}'s profile"
-            )
+            # couldn't parse the username
+            reason = f"Could't get the real username from user {username}'s profile"
+            self._logger.error(reason)
+            raise ParsingError(reason)
 
         # getting the profile picture
         if icon_el := dom.css.select(Profile.ICON_SEL):
@@ -575,9 +681,12 @@ class FunnyBot(discord.Client):
         # returning the collected information
         return profile
 
-    def _retrieve_content(self, url: str) -> Optional[Response]:
+    def _retrieve_content(self, url: str) -> Response:
         """
         Grabs the content from the iFunny CDN i.e., videos, images and gifs.
+
+        Can throw `RuntimeError` if there was an error with the request made
+        to the CDN.
         """
 
         # getting the post, assuming that it is a proper link
@@ -592,14 +701,18 @@ class FunnyBot(discord.Client):
                 e,
                 exc_info=True,
             )
-            return None
+            raise RuntimeError(
+                f"Failed to retrieve content from {url}, most likely no internet connection or a malformed url. Reason: {e}"
+            )
 
         # do we have a body?
         if not response.content:
             self._logger.error(
-                f"Response from {url} does not have a content body, aborting."
+                f"Expected response from {url} to have a body, it didn't"
             )
-            return None
+            raise RuntimeError(
+                f"Expected response from {url} to have a body, it didn't"
+            )
 
         # looking at the file type from the header
         sig = None
