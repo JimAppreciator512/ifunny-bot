@@ -3,12 +3,16 @@ This file contains an object representing a post from iFunny.
 """
 
 import io
+from typing import Optional
 
 from ifunnybot.types.post_type import PostType
 from ifunnybot.types.response import Response
-from ifunnybot.core.logging import Logger
-from ifunnybot.utils.content import crop_convert, retrieve_content
-from ifunnybot.utils.urls import username_to_url, remove_icon_cropping, remove_image_cropping
+from ifunnybot.utils.content import crop_convert
+from ifunnybot.utils.urls import (
+    username_to_url,
+    remove_icon_cropping,
+    remove_image_cropping,
+)
 
 
 class Post(object):
@@ -26,7 +30,7 @@ class Post(object):
 
     # other metadata
     AUTHOR_SEL = ("meta[name='author']", "content")
-    ICON_SEL = (
+    ICON_SEL = (  # this can fail! users might not have icons!
         "div > a > img.MmRx.xY6H.gsQw.YDCg",
         "data-src",
     )
@@ -41,7 +45,7 @@ class Post(object):
         url: str = "",
         post_type: PostType = PostType.MEME,
         content_url: str = "",
-        icon_url: str = "",
+        icon_url: Optional[str] = "",
     ):
         # computed
         self._post_type: PostType = post_type
@@ -52,7 +56,11 @@ class Post(object):
         self._comments: str = comments
         self._author: str = author
         self._content_url: str = remove_image_cropping(content_url)
-        self._icon_url: str = remove_icon_cropping(icon_url)
+        self._icon_url: Optional[str] = icon_url  # using the setter
+
+        # cropping if not none
+        if self._icon_url is not None:
+            self._icon_url = remove_icon_cropping(self._icon_url)
 
         # programmatically filled
         self._response: Response = None  # type: ignore
@@ -108,8 +116,6 @@ class Post(object):
             )
         if self._content_url is None or not isinstance(self._content_url, str):
             raise ValueError(f"content_url is None or not str, was {self._content_url}")
-        if self._icon_url is None or not isinstance(self._icon_url, str):
-            raise ValueError(f"icon_url is None or not str, was {self._icon_url}")
         if self._response is None or not isinstance(self._response, Response):
             raise ValueError(f"content is None or not Response, was {self._response}")
         return True
@@ -188,7 +194,7 @@ class Post(object):
         self._content_url = remove_image_cropping(str(value))
 
     @property
-    def icon_url(self) -> str:
+    def icon_url(self) -> Optional[str]:
         """Returns the icon_url of post."""
         return self._icon_url
 
