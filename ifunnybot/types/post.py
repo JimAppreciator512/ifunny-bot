@@ -62,18 +62,6 @@ class Post(object):
             return f"<Post: {self._post_type}@{self._url} by {self._author}, type: {self._response or 'undefined'}>"
         return f"<Post: {self._post_type}@{self._url} by {self._author}>"
 
-    def retrieve_content(self):
-        """Retrieves the content located at `self.content_url`."""
-
-        # logging
-        Logger.info(f"Retrieving content from CDN: {self._content_url}")
-
-        # saving the response as a byte array
-        if resp := retrieve_content(self._content_url):
-            self._response = resp
-        else:
-            Logger.error(f"Failed to retrieve content from {self._content_url}.")
-
     def check_datatype(self):
         """
         This function checks whether or not the content requested from iFunny
