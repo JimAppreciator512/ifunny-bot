@@ -33,3 +33,22 @@ def create_filename(post: "Post") -> Optional[str]:
         return None
 
     return match.group(1)
+
+
+def spoof_headers() -> dict[str, str]:
+    """
+    This function returns a random collection of headers.
+    """
+
+    return {
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "accept-encoding": "gzip, deflate, br",
+        "accept-language": "en-US,en;q=0.9",
+        "authority": "ifunny.co",
+        "Cache-Control": "max-age=0",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "same-origin",
+        "sec-fetch-user": "?1",
+        "upgrade-insecure-requests": "1",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36",
+    }

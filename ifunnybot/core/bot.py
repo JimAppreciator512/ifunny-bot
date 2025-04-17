@@ -17,7 +17,6 @@ from PIL import Image, ImageOps
 
 from ifunnybot.core.configuration import Configuration
 from ifunnybot.core.logging import create_logger
-from ifunnybot.data.headers import Headers
 from ifunnybot.types.post import Post
 from ifunnybot.types.mode import Mode
 from ifunnybot.types.response import Response
@@ -27,7 +26,7 @@ from ifunnybot.types.post_type import PostType
 from ifunnybot.types.parsing_exception import ParsingError
 from ifunnybot.data.signatures import IFUNNY_SIGS
 from ifunnybot.utils.html import generate_safe_selector
-from ifunnybot.utils.utils import sanitize_special_characters
+from ifunnybot.utils.utils import sanitize_special_characters, spoof_headers
 from ifunnybot.utils.urls import (
     get_url,
     get_datatype,
@@ -59,6 +58,7 @@ class FunnyBot(discord.Client):
             self
         )  # the tree variable holds slash commands
         self._mode = mode
+        self._headers = spoof_headers()
 
         # configuration
         self._log_file = log_name
@@ -73,6 +73,8 @@ class FunnyBot(discord.Client):
     async def setup_hook(self):
         # logging
         self._logger.info(f"Starting bot in {self._mode.name} mode.")
+
+        # TODO: wrapping around logging function
 
         # publishing commands
         match self._mode:
@@ -98,6 +100,11 @@ class FunnyBot(discord.Client):
                 self._logger.info(f"Published {len(commands)} commands.")
 
     # --- getters & setters ---
+
+    @property
+    def headers(self) -> dict[str, str]:
+        """Returns the headers used to query iFunny"""
+        return self._headers
 
     @property
     def pickles_dir(self) -> str:
@@ -324,7 +331,7 @@ class FunnyBot(discord.Client):
 
         # got a valid link, getting the post information
         try:
-            post = self._create_post(url)
+            post = self._create_post(url, self._headers)
 
         # something happened
         except RuntimeError as reason:
@@ -392,11 +399,11 @@ class FunnyBot(discord.Client):
 
         return (embed, file)
 
-    def get_profile_by_name(self, username: str, _headers=Headers) -> Optional[Profile]:
+    def get_profile_by_name(self, username: str) -> Optional[Profile]:
         """Get's a user's profile by username"""
-        return self._create_profile(username, _headers=_headers)
+        return self._create_profile(username, _headers=self._headers)
 
-    def get_profile_by_url(self, url: str, _headers=Headers) -> Optional[Profile]:
+    def get_profile_by_url(self, url: str) -> Optional[Profile]:
         """Get's a user's profile by url"""
 
         # get the username from the url
@@ -406,11 +413,11 @@ class FunnyBot(discord.Client):
             self._logger.error(reason)
             raise RuntimeError(reason)
 
-        return self._create_profile(username, _headers=_headers)
+        return self._create_profile(username, _headers=self._headers)
 
     # --- internal functions, mainly dealing with web scraping ---
 
-    def _create_post(self, url: str, _headers=Headers) -> Optional[Post]:
+    def _create_post(self, url: str, _headers: dict[str, str]) -> Optional[Post]:
         """
         This actually makes a `Post` object by webscraping.
 
@@ -435,27 +442,33 @@ class FunnyBot(discord.Client):
             self._logger.error(reason)
             raise RuntimeError(reason)
 
+        # logging
+        if response.status_code >= 500:
+            self._logger.error(
+                "Server responded with code %d when making request to %s, reason: %s",
+                response.status_code,
+                url,
+                response.reason,
+            )
+        else:
+            self._logger.info(
+                "Server responded with code %d when making request to %s, reason: %s",
+                response.status_code,
+                url,
+                response.reason,
+            )
+
         # what did we get from the website?
         match response.status_code:
             case _ if response.status_code >= 500:
-                # iFunny fucked up
-                self._logger.error(
-                    f"Server didn't like the request, returned {response.status_code}"
-                )
-
                 # raising an error because something went wrong
                 raise RuntimeError(f"There was an error making the request to iFunny.")
             case _ if response.status_code >= 400 and response.status_code < 500:
                 # post was taken down :(
-                self._logger.error(
-                    f"There was an error making the HTTP request to {url}"
-                )
                 return None  # can return None here since nothing actually went wrong
             case _ if response.status_code >= 200 and response.status_code < 300:
                 # good
-                self._logger.debug(
-                    f"Received a response from the server: {response.status_code}"
-                )
+                pass
 
         # transforming the response into something useable
         dom = soup(response.text, "html.parser")
@@ -608,7 +621,9 @@ class FunnyBot(discord.Client):
         # returning the collected information
         return info
 
-    def _create_profile(self, username: str, _headers=Headers) -> Optional[Profile]:
+    def _create_profile(
+        self, username: str, _headers: dict[str, str]
+    ) -> Optional[Profile]:
         """
         This actually makes a `Profile` object by webscraping.
 
@@ -891,9 +906,10 @@ class FunnyBot(discord.Client):
                     # getting the username from the url
                     if (user := get_username_from_url(url)) is None:
                         # there was an error
-                        return await message.reply(
+                        await message.reply(
                             content=f"Couldn't extract the username from: {url}",
                         )
+                        continue
 
                     try:
                         # making the embed
@@ -905,10 +921,10 @@ class FunnyBot(discord.Client):
                         )
 
                         # passing the url as content since you actually can't click this on mobile
-                        return await message.reply(embed=embed, content=url)
+                        await message.reply(embed=embed, content=url)
                     except RuntimeError as reason:
                         # there was an error
-                        return await message.reply(content=str(reason))
+                        await message.reply(content=str(reason))
 
                 # apparently, Python won't work properly if the case is a list of enums
                 # or comma-separated
@@ -926,7 +942,7 @@ class FunnyBot(discord.Client):
                         await message.reply(embed=embed, file=file)
                     except RuntimeError as reason:
                         # there was an error
-                        return await message.reply(content=str(reason))
+                        await message.reply(content=str(reason))
 
                 case _:
                     self._logger.error(
