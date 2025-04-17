@@ -9,12 +9,19 @@ from typing import Optional
 import requests
 from pyfsig.interface import FileSignature
 
+
 class Response(object):
     """
     Contains information about the response from the iFunny CDN.
     """
 
-    def __init__(self, bytes_: io.BytesIO, url: str, type_: Optional[FileSignature], response: requests.Response):
+    def __init__(
+        self,
+        bytes_: io.BytesIO,
+        url: str,
+        type_: Optional[FileSignature],
+        response: requests.Response,
+    ):
         if not bytes_:
             raise ValueError("_bytes wasn't defined during creation.")
         if not url:
@@ -73,4 +80,3 @@ class Response(object):
         if self._type:
             return f"<Response({self.reason}): url={self._url}, type={self._type.file_extension}, {self._bytes.getbuffer().nbytes / 1_000_000} MB>"
         return f'<Response({self.reason}): url={self._url}, type="???", {self._bytes.getbuffer().nbytes / 1_000_000} MB>'
-

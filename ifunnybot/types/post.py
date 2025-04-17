@@ -57,7 +57,6 @@ class Post(object):
             self._content = resp
         else:
             Logger.error(f"Failed to retrieve content from {self._content_url}.")
-            return
 
     def check_datatype(self):
         """
@@ -89,6 +88,7 @@ class Post(object):
 
     @property
     def content(self) -> io.BytesIO:
+        """Returns the actual content in bytes."""
         return self._content.bytes
 
     @property
