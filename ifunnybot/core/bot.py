@@ -454,7 +454,11 @@ class FunnyBot(discord.Client):
         content = self._retrieve_content(info.content_url)  # type: ignore
         if content is None:
             # pickling the website as this is a parsing error
-            self._pickle_website(url, response.text, RuntimeError(f"Error retrieving the content from {info.content_url}"))
+            self._pickle_website(
+                url,
+                response.text,
+                RuntimeError(f"Error retrieving the content from {info.content_url}"),
+            )
 
             # raising
             raise RuntimeError(f"Error retrieving the content from {info.content_url}")
