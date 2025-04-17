@@ -21,7 +21,9 @@ def retrieve_content(url: str) -> Optional[Response]:
         response = requests.get(url, allow_redirects=False)
     except Exception:
         # got an error
-        Logger.error(f"Failed to retrieve content from {url}, most likely no internet connection or a malformed url.")
+        Logger.error(
+            f"Failed to retrieve content from {url}, most likely no internet connection or a malformed url."
+        )
         return None
 
     # checking if we actually have a response
@@ -44,7 +46,9 @@ def retrieve_content(url: str) -> Optional[Response]:
             Logger.debug(f"Signature of the file: {sigs[0]}")
             sig = sigs[0]
         case _:
-            Logger.warn(f"Error discerning the file signature from the response, number of signatures: {len(sigs)}")
+            Logger.warn(
+                f"Error discerning the file signature from the response, number of signatures: {len(sigs)}"
+            )
             Logger.warn(f"Picking the first signature: {sigs}")
             sig = sigs[0]
 
@@ -74,7 +78,7 @@ def crop_convert(_bytes: io.BytesIO, crop=False, format="PNG") -> io.BytesIO:
 
     # turning bytes into an image
     _image = Image.open(_bytes)
-    
+
     # checking the file type
     if _image.format == None:
         Logger.warn(f"PIL could not discern what file type the image is.")
@@ -97,4 +101,3 @@ def crop_convert(_bytes: io.BytesIO, crop=False, format="PNG") -> io.BytesIO:
 
     # returning the new buffer
     return nbuf
-
