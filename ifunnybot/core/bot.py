@@ -411,6 +411,9 @@ class FunnyBot(discord.Client):
             1
         ].text
 
+        # validate the object
+        info.validate()
+
         # logging
         self._logger.info(f"Retrieved from {url}: {info}")
 

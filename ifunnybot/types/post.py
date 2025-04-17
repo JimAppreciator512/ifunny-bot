@@ -94,6 +94,31 @@ class Post(object):
         """Returns the full URL of op."""
         return username_to_url(self._username)
 
+    def validate(self) -> bool:
+        """
+        Validates the Object. Returns true on success,
+        throws a ValueError otherwise.
+        """
+        if self._likes is None or not isinstance(self._likes, str):
+            raise ValueError(f"likes is None or not str, was {self._likes}")
+        if self._comments is None or not isinstance(self._comments, str):
+            raise ValueError(f"comments is None or not str, was {self._comments}")
+        if self._username is None or not isinstance(self._username, str):
+            raise ValueError(f"username is None or not str, was {self._username}")
+        if self._url is None or not isinstance(self._url, str):
+            raise ValueError(f"url is None or not str, was {self._url}")
+        if self._post_type is None or not isinstance(self._post_type, PostType):
+            raise ValueError(
+                f"post_type is None or not PostType, was {self._post_type}"
+            )
+        if self._content_url is None or not isinstance(self._content_url, str):
+            raise ValueError(f"content_url is None or not str, was {self._content_url}")
+        if self._icon_url is None or not isinstance(self._icon_url, str):
+            raise ValueError(f"icon_url is None or not str, was {self._icon_url}")
+        if self._content is None or not isinstance(self._content, Response):
+            raise ValueError(f"content is None or not Response, was {self._content}")
+        return True
+
     @property
     def content(self) -> io.BytesIO:
         """Returns the actual content in bytes."""
