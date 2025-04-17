@@ -46,7 +46,7 @@ def get_datatype(url: str) -> Optional[PostType]:
     Gets the datatype of the post from the iFunny url.
     """
 
-    if not has_url(url):
+    if url is None:
         return None
 
     # using re.search because re.match is fucking stupid
