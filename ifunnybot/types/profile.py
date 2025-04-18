@@ -44,6 +44,9 @@ class Profile(object):
     def __repr__(self) -> str:
         return f"<Profile: {self._username}, {self._subscribers} subscribers, {self._features} features>"
 
+    def __str__(self) -> str:
+        return self.__repr__()
+
     def _remove_icon_cropping(self):
         """This removes the cropping functionality from the URL."""
         if self._icon_url is None:

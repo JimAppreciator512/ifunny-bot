@@ -40,3 +40,6 @@ class Secrets:
 
     def __repr__(self) -> str:
         return f"<Secrets: token={self.token[:3]}***, client_id={str(self.client_id)[:3]}***, guild_id={str(self.guild_id)[:3]}***, error_channel={str(self.error_channel)[:3]}***>"
+
+    def __str__(self) -> str:
+        return self.__repr__()

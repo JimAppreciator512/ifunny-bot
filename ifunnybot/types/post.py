@@ -68,6 +68,9 @@ class Post(object):
         if self._response:
             return f"<Post: {self._post_type}@{self._url} by {self._author}, type: {self._response or 'undefined'}>"
         return f"<Post: {self._post_type}@{self._url} by {self._author}>"
+    
+    def __str__(self) -> str:
+        return self.__repr__()
 
     def check_datatype(self):
         """

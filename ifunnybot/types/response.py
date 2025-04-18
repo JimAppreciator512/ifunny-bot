@@ -80,3 +80,6 @@ class Response(object):
         if self._type:
             return f"<Response({self.reason}): url={self._url}, type={self._type.file_extension}, {self._bytes.getbuffer().nbytes / 1_000_000} MB>"
         return f'<Response({self.reason}): url={self._url}, type="???", {self._bytes.getbuffer().nbytes / 1_000_000} MB>'
+
+    def __str__(self) -> str:
+        return self.__repr__()
