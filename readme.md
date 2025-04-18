@@ -100,8 +100,6 @@ services:
     volumes:
       - /path/to/your/logs/dir:/app/logs/
       - /path/to/your/pickles/dir:/app/pickles/
-    networks:
-      - your_network_here
 ```
 
 ## Server Configuration
