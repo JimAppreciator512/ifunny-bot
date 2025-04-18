@@ -73,6 +73,8 @@ class FunnyBot(discord.Client):
     async def setup_hook(self):
         # logging
         self._logger.info(f"Starting bot in {self._mode.name} mode.")
+        self._logger.info("Configuration object: %s", self._conf)
+        self._logger.info("Secrets: %s", self._secrets)
 
         # wrapping around logging function
         self._manipulate_logger()
