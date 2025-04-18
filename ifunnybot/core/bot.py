@@ -267,7 +267,9 @@ class FunnyBot(discord.Client):
             raise RuntimeError(reason)
 
         # converting the pfp to whatever format is chosen
-        converted = self._crop_convert(icon_response.bytes, crop=False, format_="PNG")
+        converted = self._crop_convert(
+            icon_response.bytes, crop=False, export_format=self.image_export_format
+        )
 
         # user has icon, returning it
         filename = f"{profile.username}_pfp.png"
@@ -637,7 +639,9 @@ class FunnyBot(discord.Client):
 
         # if the post is an image, crop it
         if info.post_type == PostType.PICTURE:
-            content.bytes = self._crop_convert(content.bytes, crop=True, format_="PNG")
+            content.bytes = self._crop_convert(
+                content.bytes, crop=True, export_format=self.image_export_format
+            )
 
         # setting
         info.response = content
@@ -816,7 +820,7 @@ class FunnyBot(discord.Client):
         return resp
 
     def _crop_convert(
-        self, _bytes: io.BytesIO, crop=False, format_="PNG"
+        self, _bytes: io.BytesIO, crop=False, export_format: Optional[str] = None
     ) -> io.BytesIO:
         """
         Converts a byte stream of type `io.BytesIO` to the specified format using PIL,
@@ -828,15 +832,19 @@ class FunnyBot(discord.Client):
         error.
         """
 
+        # getting format
+        actual_format = export_format
+        if export_format is None:
+            actual_format = self._conf.image_format
+            self._logger.debug(
+                "Set image export format from configuration: %s", actual_format
+            )
+
         # new buffer
         nbuf = io.BytesIO()
 
         # turning bytes into an image
         _image = Image.open(_bytes)
-
-        # checking the file type
-        if _image.format is None:
-            self._logger.warn("PIL could not discern what file type the image is.")
 
         # cropping & the image
         if crop:
@@ -844,10 +852,17 @@ class FunnyBot(discord.Client):
             self._logger.debug("Cropped watermark from image.")
 
         # converting the image
-        _image.save(nbuf, format=format_)
+        _image.save(nbuf, format=actual_format)
 
         # logging
-        self._logger.debug(f"Converted {_image.format} to {format_}.")
+        # checking the file type
+        if _image.format is None:
+            self._logger.warning(
+                "PIL could not discern what file type the image is. Converted to %s",
+                actual_format,
+            )
+        else:
+            self._logger.debug(f"Converted {_image.format} to {actual_format}.")
 
         # cleanup
         _bytes.close()
