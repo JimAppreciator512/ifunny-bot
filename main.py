@@ -23,74 +23,37 @@ secrets = funny.Secrets(config)
 intents = discord.Intents.default()
 intents.message_content = True
 
-# creating the client
-client = funny.FunnyBot(intents=intents, secrets=secrets)
-
-
-@client.tree.command(
-    name="icon", description="Retrieves a user's profile picture. (case insensitive)"
-)
-@app_commands.rename(user_="user")
-@app_commands.describe(user_="The user's name.")
-async def icon(interaction: discord.Interaction, user_: str):
-    # deferring the reply
-    await interaction.response.defer(thinking=True)
-
-    try:
-        # calling the bot
-        icon_ = client.get_icon(user_)
-
-        # returning the image
-        if icon_ is not None:
-            return await interaction.followup.send(file=icon_)
-        return await interaction.followup.send(
-            content=f"User {user_} doesn't have a profile picture."
-        )
-    except RuntimeError as reason:
-        return await interaction.followup.send(content=str(reason), ephemeral=True)
-
-
-@client.tree.command(
-    name="user", description="Embeds the link to a user's profile. (case insensitive)"
-)
-@app_commands.rename(user_="user")
-@app_commands.describe(user_="The user's name.")
-async def user(interaction: discord.Interaction, user_: str):
-    # deferring the reply
-    await interaction.response.defer(thinking=True)
-
-    try:
-        # calling the bot
-        embed_ = client.get_user(user_)
-
-        # passing the url as content since you actually can't click this on mobile
-        url = funny.username_to_url(user_)
-
-        # returning the image
-        return await interaction.followup.send(embed=embed_, content=url)
-    except RuntimeError as reason:
-        return await interaction.followup.send(content=str(reason), ephemeral=True)
-
-
-@client.tree.command(name="post", description="Embeds a post from iFunny into Discord.")
-@app_commands.describe(link="An iFunny.co link e.g., ifunny.co/video/...")
-async def post(interaction: discord.Interaction, link: str):
-    # deferring the reply
-    await interaction.response.defer(thinking=True)
-
-    try:
-        # calling the bot
-        (embed, file) = client.get_post(link)
-
-        # returning the image
-        return await interaction.followup.send(embed=embed, file=file)
-    except RuntimeError as reason:
-        return await interaction.followup.send(content=str(reason), ephemeral=True)
-
 
 # setup argparse
 parser = argparse.ArgumentParser(description="A discord bot to embed iFunny posts.")
-parser.add_argument("-d", "--development", action="store_true", dest="dev")
+parser.add_argument(
+    "-d",
+    "--development",
+    action="store_true",
+    dest="dev",
+    help="If flag is present, development mode is enabled. Otherwise, run in production mode.",
+)
+parser.add_argument(
+    "-p",
+    "--pickle-dir",
+    default=funny.Configuration.PICKLE_LOCATION,
+    dest="pickle",
+    help=f"Specifies the directory (it must exist) where pickle objects are stored. Default location: {funny.Configuration.PICKLE_LOCATION}",
+)
+parser.add_argument(
+    "-l",
+    "--logs-dir",
+    default=funny.Configuration.LOG_LOCATION,
+    dest="logs",
+    help=f"Specifies the directory (it must exist) where log files are stored. Default location: {funny.Configuration.LOG_LOCATION}",
+)
+parser.add_argument(
+    "-f",
+    "--format",
+    default=funny.Configuration.IMAGE_FORMAT,
+    dest="format",
+    help=f"The default image export format. Default: {funny.Configuration.IMAGE_FORMAT}",
+)
 
 
 # signal handler
@@ -107,13 +70,87 @@ if __name__ == "__main__":
     # getting args
     args = parser.parse_args()
 
+    # creating the configuration object
+    conf = funny.Configuration(
+        pickle_location=args.pickle, log_location=args.logs, image_format=args.format
+    )
+
+    # creating the client
+    client = funny.FunnyBot(intents=intents, secrets=secrets, configuration=conf)
+
     # setting potential development mode
-    if args.dev is not None:
+    if args.dev is True:
         client.set_mode(funny.Mode.DEVELOPMENT)
 
     # signal handler
     signal.signal(signal.SIGINT, lambda sig, frame: handler(sig, frame, client))
     signal.signal(signal.SIGTERM, lambda sig, frame: handler(sig, frame, client))
+
+    # --- slash commands ---
+
+    @client.tree.command(
+        name="icon",
+        description="Retrieves a user's profile picture. (case insensitive)",
+    )
+    @app_commands.rename(user_="user")
+    @app_commands.describe(user_="The user's name.")
+    async def icon(interaction: discord.Interaction, user_: str):
+        # deferring the reply
+        await interaction.response.defer(thinking=True)
+
+        try:
+            # calling the bot
+            icon_ = client.get_icon(user_)
+
+            # returning the image
+            if icon_ is not None:
+                return await interaction.followup.send(file=icon_)
+            return await interaction.followup.send(
+                content=f"User {user_} doesn't have a profile picture."
+            )
+        except RuntimeError as reason:
+            return await interaction.followup.send(content=str(reason), ephemeral=True)
+
+    @client.tree.command(
+        name="user",
+        description="Embeds the link to a user's profile. (case insensitive)",
+    )
+    @app_commands.rename(user_="user")
+    @app_commands.describe(user_="The user's name.")
+    async def user(interaction: discord.Interaction, user_: str):
+        # deferring the reply
+        await interaction.response.defer(thinking=True)
+
+        try:
+            # calling the bot
+            embed_ = client.get_user(user_)
+
+            # passing the url as content since you actually can't click this on mobile
+            url = funny.username_to_url(user_)
+
+            # returning the image
+            return await interaction.followup.send(embed=embed_, content=url)
+        except RuntimeError as reason:
+            return await interaction.followup.send(content=str(reason), ephemeral=True)
+
+    @client.tree.command(
+        name="post", description="Embeds a post from iFunny into Discord."
+    )
+    @app_commands.describe(link="An iFunny.co link e.g., ifunny.co/video/...")
+    async def post(interaction: discord.Interaction, link: str):
+        # deferring the reply
+        await interaction.response.defer(thinking=True)
+
+        try:
+            # calling the bot
+            (embed, file) = client.get_post(link)
+
+            # returning the image
+            return await interaction.followup.send(embed=embed, file=file)
+        except RuntimeError as reason:
+            return await interaction.followup.send(content=str(reason), ephemeral=True)
+
+    # --- slash commands ---
 
     # running the bot
     client.run(secrets.token)
