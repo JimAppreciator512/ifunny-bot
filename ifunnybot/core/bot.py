@@ -171,8 +171,14 @@ class FunnyBot(discord.Client):
     # --- bot functions ---
 
     def _manipulate_logger(self):
+        # if development mode, enable debug logs
+        if self._mode == Mode.PRODUCTION:
+            setattr(self._logger, "debug", lambda *args, **kwargs: str)
+
+        # getting the original function
         original_func = getattr(self._logger, "error")
 
+        # new wrapper
         def error(msg: object, *args: object, **kwargs) -> None:
             # calling the original logger function
             original_func(msg, *args, **kwargs)
@@ -942,7 +948,7 @@ class FunnyBot(discord.Client):
                 )
 
         # logging
-        self._logger.info("Logged in as: %d", repr(self.user))
+        self._logger.info("Logged in as: %s", repr(self.user))
 
     async def on_message(self, message: discord.message.Message):
         # guard clauses

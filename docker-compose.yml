@@ -5,5 +5,5 @@ services:
     restart: "unless-stopped"
     volumes:
       - ./logs/:/app/logs/
-      - ./pickle/:/app/pickles/
+      - ./pickles/:/app/pickles/
 
