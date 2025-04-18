@@ -936,7 +936,7 @@ class FunnyBot(discord.Client):
                 # logging
                 await self.change_presence(
                     activity=discord.Activity(
-                        type=discord.ActivityType.playing, name="iFunny Bot v2.1"
+                        type=discord.ActivityType.playing, name="iFunny Bot v2.5"
                     ),
                     status=discord.Status.online,
                 )
