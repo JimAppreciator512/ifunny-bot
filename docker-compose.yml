@@ -1,0 +1,9 @@
+services:
+  funnybot:
+    container_name: "funnybot"
+    build: .
+    restart: "unless-stopped"
+    volumes:
+      - ./logs/:/app/logs/
+      - ./pickle/:/app/pickles/
+
