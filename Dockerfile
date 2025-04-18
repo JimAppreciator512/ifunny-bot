@@ -10,7 +10,7 @@ COPY . /app/
 # building
 RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
 RUN mkdir -p /app/logs
+RUN mkdir -p /app/pickles
 
 # running the app
-CMD ["python3", "main.py"]
-
+CMD ["python3", "main.py", "-p", "/app/pickles", "-l", "/app/logs"]
