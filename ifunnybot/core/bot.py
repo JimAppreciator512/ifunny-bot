@@ -339,7 +339,7 @@ class FunnyBot(discord.Client):
             name=sanitize_special_characters(profile.username), url=profile.url
         )
         embed.set_footer(
-            text=f"{profile.subscribers} subscribers, {profile.subscriptions} subscriptions, {profile.features} features"
+            text=f"{profile.subscribers} subscribers, {profile.subscriptions} subscriptions, {profile.features}"
         )
 
         # if no icon, then don't execute this line
