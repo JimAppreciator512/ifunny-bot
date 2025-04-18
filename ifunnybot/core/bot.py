@@ -3,6 +3,8 @@ This file contains the bot object.
 """
 
 import io
+import sys
+import signal
 import pickle
 import asyncio
 from datetime import datetime
@@ -72,7 +74,7 @@ class FunnyBot(discord.Client):
 
     async def setup_hook(self):
         # logging
-        self._logger.info(f"Starting bot in {self._mode.name} mode.")
+        self._logger.info("Starting bot in %s mode.", self._mode.name)
         self._logger.info("Configuration object: %s", self._conf)
         self._logger.info("Secrets: %s", self._secrets)
 
@@ -91,7 +93,7 @@ class FunnyBot(discord.Client):
 
                 # logging
                 self._logger.info(
-                    f"Published {len(commands)} commands to the testing server."
+                    "Published %d commands to the testing server.", len(commands)
                 )
 
             # continue in production setting, dispatch commands to everyone
@@ -100,7 +102,7 @@ class FunnyBot(discord.Client):
                 commands = await self._tree.sync()
 
                 # logging
-                self._logger.info(f"Published {len(commands)} commands.")
+                self._logger.info("Published %d commands.", len(commands))
 
     # --- getters & setters ---
 
@@ -199,15 +201,17 @@ class FunnyBot(discord.Client):
         if isinstance(channel, discord.TextChannel):
             await channel.send(content=msg)
 
-    def terminate(self, signal, frame):
+    def terminate(self, signum: int, _):
         """Gracefully terminates the bot from a synchronous context."""
 
         # logging
-        self._logger.info(f"Received signal {signal}, shutting down bot.")
+        self._logger.info(
+            "Received signal %s(%d), shutting down bot.", signal.Signals(signum), signum
+        )
 
         # hooking into the event loop (need to call, async from sync func)
         loop = asyncio.get_event_loop()
-        loop.create_task(self.close())
+        loop.create_task(self.close()).add_done_callback(lambda x: sys.exit(0))
 
     def get_icon(self, user: str) -> Optional["discord.File"]:
         """
@@ -238,7 +242,7 @@ class FunnyBot(discord.Client):
             )
             raise RuntimeError(
                 f"There was an error made with the connection to {url}, unable to GET the website."
-            )
+            ) from reason
 
         # some weird parsing error
         except ParsingError as reason:
@@ -248,7 +252,7 @@ class FunnyBot(discord.Client):
                 reason,
                 exc_info=True,
             )
-            raise RuntimeError(f"There was an error parsing {url}.")
+            raise RuntimeError(f"There was an error parsing {url}.") from reason
 
         # if profile is None, the user is likely shadow banned
         if profile is None:
@@ -258,7 +262,7 @@ class FunnyBot(discord.Client):
 
         # checking to see if this user actually has an icon
         if profile.icon_url is None:
-            self._logger.info(f"User {user} doesn't have a profile picture.")
+            self._logger.info("User %s doesn't have a profile picture.", user)
             return None
 
         # getting the icon of the user
@@ -278,7 +282,7 @@ class FunnyBot(discord.Client):
         file = discord.File(converted, filename=filename)
 
         # logging
-        self._logger.info(f"Replying to interaction with file: {filename}")
+        self._logger.info("Replying to interaction with file: %s", filename)
 
         # returning the image
         return file
@@ -309,7 +313,7 @@ class FunnyBot(discord.Client):
             )
             raise RuntimeError(
                 f"There was an error made with the connection to {url}, unable to GET the website."
-            )
+            ) from reason
 
         # some weird parsing error
         except ParsingError as reason:
@@ -319,7 +323,7 @@ class FunnyBot(discord.Client):
                 reason,
                 exc_info=True,
             )
-            raise RuntimeError(f"There was an error parsing {url}.")
+            raise RuntimeError(f"There was an error parsing {url}.") from reason
 
         # if profile is None, the user is likely shadow banned
         if profile is None:
@@ -343,7 +347,7 @@ class FunnyBot(discord.Client):
             embed.set_thumbnail(url=profile.icon_url)
 
         # logging
-        self._logger.info(f"Replying to interaction with embed about: {profile}")
+        self._logger.info("Replying to interaction with embed about: %s", repr(profile))
 
         # replying to interaction
         return embed
@@ -359,7 +363,7 @@ class FunnyBot(discord.Client):
         # testing if the interaction contains an iFunny link
         if not (url := get_url(link)):
             # logging & returning
-            self._logger.info(f"Received an improper link: {link}")
+            self._logger.info("Received an improper link: %s", link)
             raise RuntimeError(f"The url {link}, isn't a proper iFunny url.")
 
         # simple hack, my precious
@@ -379,7 +383,7 @@ class FunnyBot(discord.Client):
             )
             raise RuntimeError(
                 f"There was an error made with the connection to {link}, unable to GET the website."
-            )
+            ) from reason
 
         # some weird parsing error
         except ParsingError as reason:
@@ -389,7 +393,7 @@ class FunnyBot(discord.Client):
                 reason,
                 exc_info=True,
             )
-            raise RuntimeError(f"There was an error parsing {link}.")
+            raise RuntimeError(f"There was an error parsing {link}.") from reason
 
         # checking if the post is None, if true, then the post was taken down/shadow banned
         if post is None:
@@ -424,14 +428,15 @@ class FunnyBot(discord.Client):
             case _:
                 # this should never happen
                 self._logger.error(
-                    f"Tried to make extension of invalid post type: {post.post_type}"
+                    "Tried to make extension of invalid post type: %s", post.post_type
                 )
 
         # creating the file object
-        file = discord.File(post.content, filename=f"{filename}.{extension}")
+        filename = f"{filename}.{extension}"
+        file = discord.File(post.content, filename=filename)
 
         # logging
-        self._logger.info(f"Returning object: {filename}.{extension}")
+        self._logger.info("Returning object: %s", filename)
 
         return (embed, file)
 
@@ -476,11 +481,16 @@ class FunnyBot(discord.Client):
         except Exception as e:
             reason = f"There was an exception making a GET request to {url}: {e}"
             self._logger.error(reason)
-            raise RuntimeError(reason)
+            raise RuntimeError(reason) from e
 
         # what did we get from the website?
         match response.status_code:
-            case _ if response.status_code >= 500:
+            case 200:
+                self._logger.info("Found post at %s", url)
+            case 404:
+                self._logger.info("Post at %s was likely banned or shadow banned.", url)
+                return None
+            case _:
                 # raising an error because something went wrong
                 self._logger.error(
                     "Server responded with code %d when making request to %s, reason: %s",
@@ -488,24 +498,7 @@ class FunnyBot(discord.Client):
                     url,
                     response.reason,
                 )
-                raise RuntimeError(f"There was an error making the request to iFunny.")
-            case _ if response.status_code >= 400 and response.status_code < 500:
-                # post was taken down :(
-                self._logger.error(
-                    "Server responded with code %d when making request to %s, reason: %s",
-                    response.status_code,
-                    url,
-                    response.reason,
-                )
-                return None  # can return None here since nothing actually went wrong
-            case _ if response.status_code >= 200 and response.status_code < 300:
-                # good
-                self._logger.info(
-                    "Server responded with code %d when making request to %s, reason: %s",
-                    response.status_code,
-                    url,
-                    response.reason,
-                )
+                raise RuntimeError("There was an error making the request to iFunny.")
 
         # transforming the response into something useable
         dom = soup(response.text, "html.parser")
@@ -524,7 +517,9 @@ class FunnyBot(discord.Client):
         canonical_el = dom.css.select(Post.CANONICAL_SEL[0])
         if len(canonical_el) == 0:
             # logging
-            self._logger.error(f"Couldn't obtain the canonical url of {url}, aborting.")
+            self._logger.error(
+                "Couldn't obtain the canonical url of %s, aborting.", url
+            )
 
             # pickle the webpage
             self._pickle_website(
@@ -541,14 +536,14 @@ class FunnyBot(discord.Client):
         info.post_type = get_datatype(canonical_url)  # type: ignore
         if info.post_type is None:
             self._logger.error(
-                f"Failed to extract datatype from canonical url: {canonical_url}"
+                "Failed to extract datatype from canonical url: %s", canonical_url
             )
             raise ParsingError(
                 f"Failed to extract datatype from canonical url: {canonical_url}"
             )
 
         # logging
-        self._logger.info(f"Found {info.post_type.name} at {url}")
+        self._logger.info("Found %s at %s", info.post_type.name, url)
 
         # get the content based on the datatype
         selector, attribute = None, None
@@ -561,7 +556,9 @@ class FunnyBot(discord.Client):
                 (selector, attribute) = Post.GIF_SEL
             case _:
                 self._logger.error(
-                    f"Encountered bad datatype when parsing {url} was {info.post_type.name}"
+                    "Encountered bad datatype when parsing %s was %s",
+                    url,
+                    info.post_type.name,
                 )
                 raise ParsingError(
                     f"Encountered bad datatype when parsing {url} was {info.post_type.name}"
@@ -619,7 +616,7 @@ class FunnyBot(discord.Client):
             raise e
 
         # logging
-        self._logger.info(f"Retrieved from {url}: {info}")
+        self._logger.info("Retrieved from %s: %s", url, repr(info))
 
         # getting the content of the post
         try:
@@ -637,7 +634,9 @@ class FunnyBot(discord.Client):
             self._pickle_website(url, response.text, reason)
 
             # raising
-            raise RuntimeError(f"Error retrieving {info.post_type.name} from {url}.")
+            raise RuntimeError(
+                f"Error retrieving {info.post_type.name} from {url}."
+            ) from reason
 
         # if the post is an image, crop it
         if info.post_type == PostType.PICTURE:
@@ -691,13 +690,24 @@ class FunnyBot(discord.Client):
         except Exception as e:
             reason = f"There was an exception making a GET request to {url}: {e}"
             self._logger.error(reason)
-            raise RuntimeError(reason)
+            raise RuntimeError(reason) from e
 
-        # testing the response code
-        if response.status_code != 200:
-            # do something here
-            self._logger.error(f"No such user {username} exists.")
-            return None
+        # what did we get from the website?
+        match response.status_code:
+            case 200:
+                self._logger.info("Found user %s", username)
+            case 404:
+                self._logger.info("User %s doesn't exist.", username)
+                return None
+            case _:
+                # raising an error because something went wrong
+                self._logger.error(
+                    "Server responded with code %d when making request to %s, reason: %s",
+                    response.status_code,
+                    url,
+                    response.reason,
+                )
+                raise RuntimeError("There was an error making the request to iFunny.")
 
         # transforming the response into something useable
         dom = soup(response.text, "html.parser")
@@ -726,7 +736,7 @@ class FunnyBot(discord.Client):
             profile.icon_url = icon_el[0].get("src")  # type: ignore
         else:
             # the user does not have a pfp
-            self._logger.info(f"User {username} doesn't have a pfp.")
+            self._logger.info("User %s doesn't have a pfp.", username)
 
         # getting the description
         if description_el := dom.css.select(Profile.DESCRIPTION_SEL):
@@ -754,7 +764,7 @@ class FunnyBot(discord.Client):
             profile.features = "No features."
 
         # logging
-        self._logger.info(f"Retrieved from {url}: {profile}")
+        self._logger.info("Retrieved from %s: %s", url, repr(profile))
 
         # returning the collected information
         return profile
@@ -781,15 +791,15 @@ class FunnyBot(discord.Client):
             )
             raise RuntimeError(
                 f"Failed to retrieve content from {url}, most likely no internet connection or a malformed url. Reason: {e}"
-            )
+            ) from e
 
         # do we have a body?
         if not response.content:
             self._logger.error(
-                f"Expected response from {url} to have a body, it didn't"
+                "Expected the response from %s to have a body, it didn't", url
             )
             raise RuntimeError(
-                f"Expected response from {url} to have a body, it didn't"
+                f"Expected the response from {url} to have a body, it didn't"
             )
 
         # looking at the file type from the header
@@ -801,16 +811,17 @@ class FunnyBot(discord.Client):
         # checking the number of signatures
         match len(sigs):
             case 0:
-                self._logger.warn("pyfsig failed to determine the type of the file.")
+                self._logger.warning("pyfsig failed to determine the type of the file.")
             case 1:
-                self._logger.debug(f"Signature of the file: {sigs[0]}")
+                self._logger.debug("Signature of the file: %s", repr(sigs[0]))
                 sig = sigs[0]
             case _:
-                self._logger.warn(
-                    f"Error discerning the file signature from the response, number of signatures: {len(sigs)}"
+                self._logger.warning(
+                    "Error discerning the file signature from the response, number of signatures: %d",
+                    len(sigs),
                 )
-                self._logger.warn(f"Picking the first signature: {sigs}")
                 sig = sigs[0]
+                self._logger.warning("Picking the first signature: %s", repr(sigs))
 
         # creating new Response object
         resp = Response(io.BytesIO(response.content), url, sig, response)
@@ -864,7 +875,7 @@ class FunnyBot(discord.Client):
                 actual_format,
             )
         else:
-            self._logger.debug(f"Converted {_image.format} to {actual_format}.")
+            self._logger.debug("Converted %s to %s.", _image.format, actual_format)
 
         # cleanup
         _bytes.close()
@@ -900,7 +911,11 @@ class FunnyBot(discord.Client):
             _bytes = pickle.dumps(payload)
             p.write(_bytes)
             self._logger.info(
-                f"Pickled website for {url} as {self.pickles_dir}/{filename}, {len(_bytes)} bytes."
+                "Pickled website for %s as %s/%s, %d bytes.",
+                url,
+                self.pickles_dir,
+                filename,
+                len(_bytes),
             )
 
     # --- bot events ---
@@ -927,7 +942,7 @@ class FunnyBot(discord.Client):
                 )
 
         # logging
-        self._logger.info(f"Logged in as: {self.user}")
+        self._logger.info("Logged in as: %d", repr(self.user))
 
     async def on_message(self, message: discord.message.Message):
         # guard clauses
@@ -967,7 +982,7 @@ class FunnyBot(discord.Client):
 
                         # logging
                         self._logger.info(
-                            f"Replying to interaction with embed about user {user}"
+                            "Replying to interaction with embed about user %s", user
                         )
 
                         # passing the url as content since you actually can't click this on mobile
@@ -985,7 +1000,7 @@ class FunnyBot(discord.Client):
 
                         # logging
                         self._logger.info(
-                            f"Replying to interaction with embed about post {url}"
+                            "Replying to interaction with embed about post at %s", url
                         )
 
                         # replying to the user
@@ -996,6 +1011,7 @@ class FunnyBot(discord.Client):
 
                 case _:
                     self._logger.error(
-                        f"Could not discern the type of the post, silently aborting. Type was {get_datatype(url)}"
+                        "Could not discern the type of the post, silently aborting. Type was %s",
+                        get_datatype(url),
                     )
                     return None
