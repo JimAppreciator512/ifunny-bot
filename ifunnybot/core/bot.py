@@ -82,7 +82,7 @@ class FunnyBot(discord.Client):
         # logging
         self._logger.info("Starting bot in %s mode.", self._mode.name)
         self._logger.info("Configuration object: %s", self._conf)
-        self._logger.info("Secrets: %s", self._secrets)
+        self._logger.debug("Secrets: %s", self._secrets)
 
         # wrapping around logging function
         self._manipulate_logger()
