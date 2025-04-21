@@ -563,6 +563,7 @@ class FunnyBot(discord.Client):
         self._logger.info("Found %s at %s", info.post_type.name, url)
 
         # get the content based on the datatype
+        # TODO: Add support for the MEME datatype
         selector, attribute = None, None
         match info.post_type:
             case PostType.PICTURE:
@@ -571,6 +572,15 @@ class FunnyBot(discord.Client):
                 (selector, attribute) = Post.VIDEO_SEL
             case PostType.GIF:
                 (selector, attribute) = Post.GIF_SEL
+            case PostType.MEME:
+                self._logger.error(
+                    "Can't parse datatype %s from %s, replace 'meme/' with one of; picture, gif or video.",
+                    PostType.MEME.name,
+                    url,
+                )
+                raise NotImplementedError(
+                    f"Can't parse datatype {PostType.MEME} from {url}, replace 'meme/' with one of; picture, gif or video."
+                )
             case _:
                 self._logger.error(
                     "Encountered bad datatype when parsing %s was %s",
