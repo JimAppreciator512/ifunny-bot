@@ -1,6 +1,6 @@
 import re
 import base64
-from typing import Optional, Any
+from typing import Optional
 
 from ifunnybot.types.post_type import PostType
 
@@ -24,8 +24,8 @@ def encode_url(url: str) -> str:
 def remove_image_cropping(url: str) -> str:
     """This removes the cropping functionality from the URL."""
 
-    cropping = r",resize:\d+x,quality:\d+x\d+"
-    return re.sub(cropping, "", url)
+    cropping = r"crop:x-20,resize:\d+x,quality:\d+x\d+"
+    return re.sub(cropping, "crop", url)
 
 
 def remove_icon_cropping(url: str) -> str:
