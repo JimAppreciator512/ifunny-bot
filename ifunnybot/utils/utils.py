@@ -1,4 +1,5 @@
 import re
+import base64
 from typing import Optional, TYPE_CHECKING
 
 # dear fucking God never remove this
@@ -10,6 +11,11 @@ FILENAME_PATTERN = r"co\/\w+\/([0-9a-f]*)(?:_\d)?\.(\w{3,4})$"
 # The SHA1 hash of the iFunny watermark.
 # WATERMARK_MAGIC_HASH = "8545e508ee74bf3e046551137f294c25a132e28d"
 WATERMARK_MAGIC_HASH = "5f64c68bed38a1e171a834e41a246796674ce922"
+
+
+def b64encode(s: str) -> str:
+    """Wrapper around `base64.urlsafe_b64encode`"""
+    return base64.urlsafe_b64encode(s.encode("utf-8")).decode("utf-8")
 
 
 def sanitize_special_characters(text: str) -> str:
