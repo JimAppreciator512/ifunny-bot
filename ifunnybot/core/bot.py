@@ -204,6 +204,17 @@ class FunnyBot(discord.Client):
         # get the channel
         channel = self.get_channel(self._secrets.error_channel)
 
+        # format the message
+        actual = f"""
+        # Error
+
+        > Timestamp: {datetime.now().timestamp()}
+
+        > Content:
+
+        {msg}
+        """
+
         # get again if channel is None
         if channel is None:
             # Fallback in case the bot hasn't cached the channel
@@ -211,7 +222,7 @@ class FunnyBot(discord.Client):
 
         # send the message
         if isinstance(channel, discord.TextChannel):
-            await channel.send(content=msg)
+            await channel.send(content=actual)
 
     def terminate(self, signum: int, _):
         """Gracefully terminates the bot from a synchronous context."""
