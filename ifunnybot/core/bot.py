@@ -475,7 +475,9 @@ class FunnyBot(discord.Client):
 
     # --- internal functions, mainly dealing with web scraping ---
 
-    def _create_post(self, url: str, _headers: dict[str, str]) -> Optional[Post]:
+    def _create_post(
+        self, url: str, headers: Optional[dict[str, str]] = None, crop: bool = False
+    ) -> Optional[Post]:
         """
         This actually makes a `Post` object by webscraping.
 
@@ -489,11 +491,14 @@ class FunnyBot(discord.Client):
         related happened.
         """
 
+        # checking headers
+        actual_headers = headers if headers is not None else self._headers
+
         # getting the post, assuming that it is a proper link
         response = None
         try:
             response = requests.get(
-                url, headers=_headers, allow_redirects=False, timeout=10000
+                url, headers=actual_headers, allow_redirects=False, timeout=10000
             )
         except Exception as e:
             reason = f"There was an exception making a GET request to {url}: {e}"
@@ -503,7 +508,7 @@ class FunnyBot(discord.Client):
         # what did we get from the website?
         match response.status_code:
             case 200:
-                self._logger.info("Found post at %s", url)
+                self._logger.info("The post at %s is still valid.", url)
             case 404:
                 self._logger.info("Post at %s was likely banned or shadow banned.", url)
                 return None
