@@ -7,6 +7,7 @@ import sys
 import signal
 import pickle
 import asyncio
+import hashlib
 from datetime import datetime
 from typing import Tuple, Optional
 
@@ -28,13 +29,18 @@ from ifunnybot.types.post_type import PostType
 from ifunnybot.types.parsing_exception import ParsingError
 from ifunnybot.data.signatures import IFUNNY_SIGS
 from ifunnybot.utils.html import generate_safe_selector
-from ifunnybot.utils.utils import sanitize_special_characters, spoof_headers
+from ifunnybot.utils.utils import (
+    sanitize_special_characters,
+    spoof_headers,
+    WATERMARK_MAGIC_HASH,
+)
 from ifunnybot.utils.urls import (
     get_url,
     get_datatype,
     get_username_from_url,
     encode_url,
     username_to_url,
+    remove_image_cropping,
 )
 
 
@@ -278,13 +284,18 @@ class FunnyBot(discord.Client):
             self._logger.error(reason)
             raise RuntimeError(reason)
 
+        # filename
+        filename = f"{profile.username}_pfp.png"
+
         # converting the pfp to whatever format is chosen
         converted = self._crop_convert(
-            icon_response.bytes, crop=False, export_format=self.image_export_format
+            icon_response.bytes,
+            force_crop=False,
+            export_format=self.image_export_format,
+            filename=icon_response.url,
         )
 
         # user has icon, returning it
-        filename = f"{profile.username}_pfp.png"
         file = discord.File(converted, filename=filename)
 
         # logging
@@ -420,7 +431,7 @@ class FunnyBot(discord.Client):
         )
 
         # create the filename
-        filename = encode_url(post.content_url)
+        filename = encode_url(post.url)
 
         # forming the file extension
         extension = ""
@@ -647,7 +658,10 @@ class FunnyBot(discord.Client):
         # if the post is an image, crop it
         if info.post_type == PostType.PICTURE:
             content.bytes = self._crop_convert(
-                content.bytes, crop=True, export_format=self.image_export_format
+                content.bytes,
+                force_crop=crop,
+                export_format=self.image_export_format,
+                filename=content.url,
             )
 
         # setting
@@ -775,7 +789,7 @@ class FunnyBot(discord.Client):
         # returning the collected information
         return profile
 
-    def _retrieve_content(self, url: str) -> Response:
+    def _retrieve_content(self, url: str, remove_cropping: bool = True) -> Response:
         """
         Grabs the content from the iFunny CDN i.e., videos, images and gifs.
 
@@ -823,14 +837,23 @@ class FunnyBot(discord.Client):
                 sig = sigs[0]
             case _:
                 self._logger.warning(
-                    "Error discerning the file signature from the response, number of signatures: %d",
+                    "More than one possible signature. Total: %d; %s",
                     len(sigs),
+                    ", ".join(map(lambda x: x.file_extension, sigs)),
                 )
                 sig = sigs[0]
-                self._logger.warning("Picking the first signature: %s", repr(sigs))
+                self._logger.warning(
+                    "Picking the first signature: %s", sig.file_extension
+                )
+
+        # removing cropping from the CDN if specified
+        _url = url
+        if remove_cropping:
+            _url = remove_image_cropping(_url)
+            self._logger.debug("Removed cropping from the URL: %s -> %s", url, _url)
 
         # creating new Response object
-        resp = Response(io.BytesIO(response.content), url, sig, response)
+        resp = Response(io.BytesIO(response.content), _url, sig, response)
 
         # logging
         self._logger.debug(resp)
@@ -839,7 +862,11 @@ class FunnyBot(discord.Client):
         return resp
 
     def _crop_convert(
-        self, _bytes: io.BytesIO, crop=False, export_format: Optional[str] = None
+        self,
+        _bytes: io.BytesIO,
+        force_crop=False,
+        export_format: Optional[str] = None,
+        filename: Optional[str] = None,
     ) -> io.BytesIO:
         """
         Converts a byte stream of type `io.BytesIO` to the specified format using PIL,
@@ -849,7 +876,19 @@ class FunnyBot(discord.Client):
         This function does not check whether or not `_bytes` is an actual image,
         if you try to pass in something that isn't an image, you'll most likely get an
         error.
+
+        - `force_crop`: str - If this is true, the function will always crop the image.
+        - `export_format`: Optional[str] - This dictates the output format of the image,
+            this gets input directly into `Image.save(..., format=...)`
+        - `filename`: Optional[str] - This is for logging, whatever string is inputted here
+            will get written to the log file.
         """
+
+        # getting the effective filename of the image
+        effective_name = filename if filename is not None else "unknown"
+
+        # turning bytes into an image
+        _image = Image.open(_bytes)
 
         # getting format
         actual_format = export_format
@@ -859,16 +898,36 @@ class FunnyBot(discord.Client):
                 "Set image export format from configuration: %s", actual_format
             )
 
+        # determining if the image should be cropped or not
+        sub_image = Image.new(_image.mode, _image.size).crop(
+            (_image.width - 100, _image.height - 20, _image.width, _image.height)
+        )
+        _hash = hashlib.sha1(sub_image.tobytes()).hexdigest()
+        sub_image.close()
+        should_crop = _hash == WATERMARK_MAGIC_HASH
+
         # new buffer
         nbuf = io.BytesIO()
 
-        # turning bytes into an image
-        _image = Image.open(_bytes)
-
         # cropping & the image
-        if crop:
+        if force_crop or should_crop:
             _image = ImageOps.crop(_image, (0, 0, 0, 20))
-            self._logger.debug("Cropped watermark from image.")
+            self._logger.info(
+                "Image from %s was cropped, had hash: %s (matches magic hash? %s)",
+                effective_name,
+                _hash,
+                should_crop,
+            )
+
+        # logging
+        self._logger.debug(
+            "Image hash: %s. Should crop? %s. Forced Crop? %s. Was cropped? %s. Image name: %s",
+            _hash,
+            should_crop,
+            force_crop,
+            should_crop or force_crop,
+            effective_name,
+        )
 
         # converting the image
         _image.save(nbuf, format=actual_format)
@@ -881,7 +940,7 @@ class FunnyBot(discord.Client):
                 actual_format,
             )
         else:
-            self._logger.debug("Converted %s to %s.", _image.format, actual_format)
+            self._logger.info("Converted %s to %s.", _image.format, actual_format)
 
         # cleanup
         _bytes.close()
