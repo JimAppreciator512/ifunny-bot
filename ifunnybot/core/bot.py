@@ -21,7 +21,7 @@ from PIL import Image, ImageOps
 from ifunnybot.core.configuration import Configuration
 from ifunnybot.core.logging import create_logger
 from ifunnybot.types.post import Post
-from ifunnybot.types.mode import Mode
+from ifunnybot.types.mode import Mode, CropMethod, ImageFormat
 from ifunnybot.types.response import Response
 from ifunnybot.types.secrets import Secrets
 from ifunnybot.types.profile import Profile
@@ -81,11 +81,17 @@ class FunnyBot(discord.Client):
     async def setup_hook(self):
         # wrapping around logging function
         self._manipulate_logger()
-        
+
         # logging
         self._logger.info("Starting bot in %s mode.", self._mode.name)
         self._logger.info("Configuration object: %s", self._conf)
         self._logger.debug("Secrets: %s", self._secrets)
+        self._logger.info(
+            "Supported image formats: %s",
+            ", ".join(
+                map(lambda x: f"{x.name}: {ImageFormat.is_supported(x)}", ImageFormat)
+            ),
+        )
 
         # publishing commands
         match self._mode:
@@ -128,7 +134,7 @@ class FunnyBot(discord.Client):
         return self._conf.log_location
 
     @property
-    def image_export_format(self) -> str:
+    def image_export_format(self) -> ImageFormat:
         """Returns the default image export format used for icons and pictures."""
         return self._conf.image_format
 
@@ -293,7 +299,7 @@ class FunnyBot(discord.Client):
         # converting the pfp to whatever format is chosen
         converted = self._crop_convert(
             icon_response.bytes,
-            force_crop=False,
+            crop=CropMethod.NOCROP,
             export_format=self.image_export_format,
             filename=icon_response.url,
         )
@@ -366,7 +372,9 @@ class FunnyBot(discord.Client):
         # replying to interaction
         return embed
 
-    def get_post(self, link: str) -> Tuple["discord.Embed", "discord.File"]:
+    def get_post(
+        self, link: str, crop_method: CropMethod = CropMethod.AUTO
+    ) -> Tuple["discord.Embed", "discord.File"]:
         """
         This function returns the target user's post as a tuple of a `discord.Embed`
         and `discord.File` object.
@@ -385,7 +393,7 @@ class FunnyBot(discord.Client):
 
         # got a valid link, getting the post information
         try:
-            post = self._create_post(url, self._headers)
+            post = self._create_post(url, self._headers, crop=crop_method)
 
         # something happened
         except RuntimeError as reason:
@@ -470,7 +478,10 @@ class FunnyBot(discord.Client):
     # --- internal functions, mainly dealing with web scraping ---
 
     def _create_post(
-        self, url: str, headers: Optional[dict[str, str]] = None, crop: bool = False
+        self,
+        url: str,
+        headers: Optional[dict[str, str]] = None,
+        crop: CropMethod = CropMethod.AUTO,
     ) -> Optional[Post]:
         """
         This actually makes a `Post` object by webscraping.
@@ -668,7 +679,7 @@ class FunnyBot(discord.Client):
         if info.post_type == PostType.PICTURE:
             content.bytes = self._crop_convert(
                 content.bytes,
-                force_crop=crop,
+                crop=crop,
                 export_format=self.image_export_format,
                 filename=content.url,
             )
@@ -798,12 +809,15 @@ class FunnyBot(discord.Client):
         # returning the collected information
         return profile
 
-    def _retrieve_content(self, url: str, remove_cropping: bool = True) -> Response:
+    def _retrieve_content(self, url: str) -> Response:
         """
         Grabs the content from the iFunny CDN i.e., videos, images and gifs.
 
         Can throw `RuntimeError` if there was an error with the request made
         to the CDN.
+
+        This method removes all forms of cropping from the API since I mainly
+        just don't trust it and for better control.
         """
 
         # getting the post, assuming that it is a proper link
@@ -855,14 +869,10 @@ class FunnyBot(discord.Client):
                     "Picking the first signature: %s", sig.file_extension
                 )
 
-        # removing cropping from the CDN if specified
-        _url = url
-        if remove_cropping:
-            _url = remove_image_cropping(_url)
-            self._logger.debug("Removed cropping from the URL: %s -> %s", url, _url)
-
         # creating new Response object
-        resp = Response(io.BytesIO(response.content), _url, sig, response)
+        resp = Response(
+            io.BytesIO(response.content), remove_image_cropping(url), sig, response
+        )
 
         # logging
         self._logger.debug(resp)
@@ -873,8 +883,8 @@ class FunnyBot(discord.Client):
     def _crop_convert(
         self,
         _bytes: io.BytesIO,
-        force_crop=False,
-        export_format: Optional[str] = None,
+        crop: CropMethod = CropMethod.AUTO,
+        export_format: ImageFormat = ImageFormat.PNG,
         filename: Optional[str] = None,
     ) -> io.BytesIO:
         """
@@ -899,57 +909,59 @@ class FunnyBot(discord.Client):
         # turning bytes into an image
         _image = Image.open(_bytes)
 
-        # getting format
-        actual_format = export_format
-        if export_format is None:
-            actual_format = self._conf.image_format
-            self._logger.debug(
-                "Set image export format from configuration: %s", actual_format
-            )
-
-        # determining if the image should be cropped or not
-        sub_image = Image.new(_image.mode, _image.size).crop(
-            (_image.width - 100, _image.height - 20, _image.width, _image.height)
-        )
-        _hash = hashlib.sha1(sub_image.tobytes()).hexdigest()
-        sub_image.close()
-        should_crop = _hash == WATERMARK_MAGIC_HASH
-
         # new buffer
         nbuf = io.BytesIO()
 
-        # cropping & the image
-        if force_crop or should_crop:
-            _image = ImageOps.crop(_image, (0, 0, 0, 20))
+        # variables
+        _hash = None
+
+        # cropping the image
+        match crop:
+            case CropMethod.AUTO:
+                # determining if the image should be cropped or not
+                sub_image = Image.new(_image.mode, _image.size).crop(
+                    (
+                        _image.width - 100,
+                        _image.height - 20,
+                        _image.width,
+                        _image.height,
+                    )
+                )
+                _hash = hashlib.sha1(sub_image.tobytes()).hexdigest()
+                sub_image.close()
+
+                # testing
+                if _hash == WATERMARK_MAGIC_HASH:
+                    _image = ImageOps.crop(_image, (0, 0, 0, 20))
+            case CropMethod.NOCROP:
+                # don't crop
+                pass
+            case CropMethod.FORCE:
+                # force crop
+                _image = ImageOps.crop(_image, (0, 0, 0, 20))
+
+        # checking the accuracy of auto cropping
+        if crop == CropMethod.AUTO:
             self._logger.info(
-                "Image from %s was cropped, had hash: %s (matches magic hash? %s)",
+                "Image from %s cropped? %s, had hash: %s (matches magic hash? %s)",
                 effective_name,
+                _hash == WATERMARK_MAGIC_HASH,
                 _hash,
-                should_crop,
+                _hash == WATERMARK_MAGIC_HASH,
             )
 
-        # logging
-        self._logger.debug(
-            "Image hash: %s. Should crop? %s. Forced Crop? %s. Was cropped? %s. Image name: %s",
-            _hash,
-            should_crop,
-            force_crop,
-            should_crop or force_crop,
-            effective_name,
-        )
-
         # converting the image
-        _image.save(nbuf, format=actual_format)
+        _image.save(nbuf, format=export_format.name)
 
         # logging
         # checking the file type
         if _image.format is None:
             self._logger.warning(
                 "PIL could not discern what file type the image is. Converted to %s",
-                actual_format,
+                export_format.name,
             )
         else:
-            self._logger.info("Converted %s to %s.", _image.format, actual_format)
+            self._logger.info("Converted %s to %s.", _image.format, export_format.name)
 
         # cleanup
         _bytes.close()
