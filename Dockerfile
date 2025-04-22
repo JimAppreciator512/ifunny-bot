@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11
+FROM python:3.11 AS base
 
 # app workdir
 WORKDIR /app
@@ -8,15 +8,19 @@ WORKDIR /app
 RUN mkdir -p /app/logs
 RUN mkdir -p /app/pickles
 
-# copying files
-COPY . /app/
-
-# updating the container
+# updating the packages
+FROM base AS update
 RUN apt update -y
 RUN apt upgrade -y
 
-# installing pip packages
+# building base image
+FROM update AS pip
+COPY ./requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
+
+FROM pip AS run
+COPY . /app/
 
 # running the app
 CMD ["python3", "main.py", "-p", "/app/pickles", "-l", "/app/logs"]
+
