@@ -79,13 +79,13 @@ class FunnyBot(discord.Client):
     # --- setup functions ---
 
     async def setup_hook(self):
+        # wrapping around logging function
+        self._manipulate_logger()
+        
         # logging
         self._logger.info("Starting bot in %s mode.", self._mode.name)
         self._logger.info("Configuration object: %s", self._conf)
         self._logger.debug("Secrets: %s", self._secrets)
-
-        # wrapping around logging function
-        self._manipulate_logger()
 
         # publishing commands
         match self._mode:
@@ -205,15 +205,7 @@ class FunnyBot(discord.Client):
         channel = self.get_channel(self._secrets.error_channel)
 
         # format the message
-        actual = f"""
-        # Error
-
-        > Timestamp: {datetime.now().timestamp()}
-
-        > Content:
-
-        {msg}
-        """
+        actual = f"# Error @ {datetime.now().timestamp()}\n{msg}"
 
         # get again if channel is None
         if channel is None:
@@ -309,9 +301,6 @@ class FunnyBot(discord.Client):
         # user has icon, returning it
         file = discord.File(converted, filename=filename)
 
-        # logging
-        self._logger.info("Replying to interaction with file: %s", filename)
-
         # returning the image
         return file
 
@@ -373,9 +362,6 @@ class FunnyBot(discord.Client):
         # if no icon, then don't execute this line
         if profile.icon_url is not None:
             embed.set_thumbnail(url=profile.icon_url)
-
-        # logging
-        self._logger.info("Replying to interaction with embed about: %s", repr(profile))
 
         # replying to interaction
         return embed
@@ -462,9 +448,6 @@ class FunnyBot(discord.Client):
         # creating the file object
         filename = f"{filename}.{extension}"
         file = discord.File(post.content, filename=filename)
-
-        # logging
-        self._logger.info("Returning object: %s", filename)
 
         return (embed, file)
 
