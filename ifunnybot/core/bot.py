@@ -10,6 +10,7 @@ import asyncio
 import hashlib
 from datetime import datetime
 from typing import Tuple, Optional
+from urllib3.exceptions import NameResolutionError
 
 import pyfsig
 import discord
@@ -179,6 +180,14 @@ class FunnyBot(discord.Client):
         Returns the slash command builder.
         """
         return self._tree
+
+    @property
+    def prefer_video_url(self) -> bool:
+        """
+        Returns if the bot prefers to embed the URL of the video
+        instead of embedding it as a file.
+        """
+        return self._conf.prefer_video_url
 
     # --- bot functions ---
 
@@ -373,11 +382,16 @@ class FunnyBot(discord.Client):
         return embed
 
     def get_post(
-        self, link: str, crop_method: CropMethod = CropMethod.AUTO
-    ) -> Tuple["discord.Embed", "discord.File"]:
+        self,
+        link: str,
+        crop_method: CropMethod = CropMethod.AUTO,
+    ) -> Tuple["discord.Embed", "discord.File", str, "PostType"]:
         """
         This function returns the target user's post as a tuple of a `discord.Embed`
         and `discord.File` object.
+
+        If the `prefer_video_url` argument is True (by default `True`), it will opt to
+        return the URL of the video instead of returning it as a file.
 
         If there are any errors, a `RuntimeError` is raised with the reason for the failure.
         """
@@ -393,7 +407,11 @@ class FunnyBot(discord.Client):
 
         # got a valid link, getting the post information
         try:
-            post = self._create_post(url, self._headers, crop=crop_method)
+            post = self._create_post(
+                url,
+                self._headers,
+                crop=crop_method,
+            )
 
         # something happened
         except RuntimeError as reason:
@@ -457,7 +475,7 @@ class FunnyBot(discord.Client):
         filename = f"{filename}.{extension}"
         file = discord.File(post.content, filename=filename)
 
-        return (embed, file)
+        return (embed, file, post.content_url, post.post_type)
 
     def get_profile_by_name(self, username: str) -> Optional[Profile]:
         """Get's a user's profile by username"""
@@ -505,6 +523,8 @@ class FunnyBot(discord.Client):
             response = requests.get(
                 url, headers=actual_headers, allow_redirects=False, timeout=10000
             )
+        except NameResolutionError as e:
+            raise e
         except Exception as e:
             reason = f"There was an exception making a GET request to {url}: {e}"
             self._logger.error(reason)
@@ -1082,7 +1102,7 @@ class FunnyBot(discord.Client):
                 case PostType.VIDEO | PostType.GIF | PostType.PICTURE | PostType.MEME:
                     try:
                         # creating everything
-                        (embed, file) = self.get_post(url)
+                        (embed, file, content_url, actual_type) = self.get_post(url)
 
                         # logging
                         self._logger.info(
@@ -1090,7 +1110,11 @@ class FunnyBot(discord.Client):
                         )
 
                         # replying to the user
-                        await message.reply(embed=embed, file=file)
+                        if actual_type == PostType.VIDEO and self.prefer_video_url:
+                            await message.reply(content=content_url)
+                            # await message.reply(embed=embed, content=content_url)
+                        else:
+                            await message.reply(embed=embed, file=file)
                     except RuntimeError as reason:
                         # there was an error
                         await message.reply(content=str(reason))

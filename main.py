@@ -6,6 +6,7 @@ import os
 import sys
 import signal
 import argparse
+from urllib3.exceptions import NameResolutionError
 
 import discord
 from discord import app_commands
@@ -143,12 +144,26 @@ if __name__ == "__main__":
 
         try:
             # calling the bot
-            (embed, file) = client.get_post(link)
+            (embed, file, content_url, actual_type) = client.get_post(link)
 
             # returning the image
-            return await interaction.followup.send(embed=embed, file=file)
+            if client.prefer_video_url and actual_type == funny.PostType.VIDEO:
+                # return await interaction.followup.send(embed=embed, content=content_url)
+                return await interaction.followup.send(content=content_url)
+            else:
+                return await interaction.followup.send(embed=embed, file=file)
         except RuntimeError as reason:
             return await interaction.followup.send(content=str(reason), ephemeral=True)
+        except NameResolutionError as reason:  # type: ignore
+            return await interaction.followup.send(
+                content="Encountered a DNS error, this is an known on going issue, please try again in a minute or so.",
+                ephemeral=True,
+            )
+        except Exception as reason:  # type: ignore
+            return await interaction.followup.send(
+                content=f"Encounted an unexpected error: {reason}.",
+                ephemeral=True,
+            )
 
     # --- slash commands ---
 
