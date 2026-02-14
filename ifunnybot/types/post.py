@@ -33,8 +33,8 @@ class Post(object):
         "div > a > img.MmRx.xY6H.gsQw.YDCg",
         "data-src",
     )
-    LIKES_SEL = "div > button:nth-child(3) > span > span"
-    COMMENTS_SEL = "div > button:nth-child(4) > span > span"
+    LIKES_SEL = "div.T_Se > div > button:nth-child(1) > span.bWIw > span:nth-child(2)"
+    COMMENTS_SEL = "div.T_Se > div > button:nth-child(2) > span.bWIw > span:nth-child(2)"
 
     def __init__(
         self,
