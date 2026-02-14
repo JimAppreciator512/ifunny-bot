@@ -6,4 +6,6 @@ LICENSE
 readme.md
 *.sh
 docker-compose.yml
+logs/
+pickles/
 
