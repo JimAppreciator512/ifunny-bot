@@ -648,7 +648,7 @@ class FunnyBot(discord.Client):
         except ParsingError as reason:
             # better exception handling
             self._logger.error(
-                "Failure to parse %s from %s, cannot proceed. %s",
+                "Failure to parse metadata (of post type %s) from %s, cannot proceed. %s",
                 info.post_type.name,
                 url,
                 reason,
@@ -660,6 +660,7 @@ class FunnyBot(discord.Client):
 
             # raising the error
             raise reason
+
         except Exception as e:  # type: ignore
             # logging
             self._logger.error(
@@ -1000,26 +1001,26 @@ class FunnyBot(discord.Client):
         {
             url: `url`,
             reason: `reason`,
-            payload: `content`
+            payload: `content`,
+            timestamp: `datetime.now().timestamp()`
         }
 
         This should be used to debug HTML parsing errors.
         """
 
         # creating filename
-        filename = f"{encode_url(url)}.pickle"
+        filename = f"{self.pickles_dir}/{datetime.now().timestamp()}-{encode_url(url)}.pickle"
 
         # creating object
-        payload = {"url": url, "reason": reason, "payload": content}
+        payload = {"timestamp": datetime.now().timestamp(), "url": url, "reason": reason, "payload": content}
 
         # pickling
-        with open(f"{self.pickles_dir}/{filename}", "wb") as p:
+        with open(filename, "wb") as p:
             _bytes = pickle.dumps(payload)
             p.write(_bytes)
             self._logger.info(
-                "Pickled website for %s as %s/%s, %d bytes.",
+                "Pickled website for %s to %s (%d bytes)",
                 url,
-                self.pickles_dir,
                 filename,
                 len(_bytes),
             )
@@ -1042,7 +1043,7 @@ class FunnyBot(discord.Client):
                 # logging
                 await self.change_presence(
                     activity=discord.Activity(
-                        type=discord.ActivityType.playing, name="iFunny Bot v2.5"
+                        type=discord.ActivityType.playing, name="iFunny Bot v2.6"
                     ),
                     status=discord.Status.online,
                 )
