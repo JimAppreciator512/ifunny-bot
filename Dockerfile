@@ -10,8 +10,8 @@ RUN mkdir -p /app/pickles
 
 # updating the packages
 FROM base AS update
-RUN apt update -y
-RUN apt upgrade -y
+RUN apt update -y --fix-missing --no-install-recommends
+RUN apt upgrade -y --fix-missing --no-install-recommends
 
 # building base image
 FROM update AS pip
