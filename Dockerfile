@@ -15,8 +15,15 @@ RUN apt upgrade -y --fix-missing --no-install-recommends
 
 # building base image
 FROM update AS pip
+
+# packages
 COPY ./requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
+
+# installing packages
+RUN pip install --no-cache-dir \
+    --upgrade \
+    -r /app/requirements.txt \
+    --root-user-action
 
 FROM pip AS run
 COPY . /app/
