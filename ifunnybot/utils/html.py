@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Callable, Concatenate, Any
 
 from ifunnybot.types.parsing_exception import ParsingError
 
@@ -8,14 +8,16 @@ if TYPE_CHECKING:
 
 def generate_safe_selector(
     dom: "BeautifulSoup",
-):
+) -> Callable[Concatenate[str, ...], "Tag"]: # type: ignore
     """
-    Creates a wrapper that returns a function to safely select
-    some attribute from an HTML tag and sets the `field` of
-    `prop` to it's value.
+    Creates a wrapper around the BeautifulSoup implementation
+    if CSS selectors.
 
-    Returns false on failure and true on success.
+    Basically, pass in a selector find it within the HTML. If it
+    was found, return the HTML element that the selector finds,
+    otherwise, raise a `ParsingError` which must be caught.
     """
+
     if dom.css is None:
         raise ReferenceError("dom.css cannot be None")
 
@@ -23,7 +25,7 @@ def generate_safe_selector(
         """
         selector: str - The CSS selector of the element to find.
 
-        Returns true on success, false on failure.
+        Returns a `Tag` on success, otherwise, raise a `ParsingError`.
         """
         # checking kwargs
         if kwargs.get("limit", None) is None:

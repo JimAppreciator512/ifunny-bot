@@ -9,7 +9,7 @@ import pickle
 import asyncio
 import hashlib
 from datetime import datetime
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Callable
 from urllib3.exceptions import NameResolutionError
 
 import pyfsig
@@ -594,14 +594,18 @@ class FunnyBot(discord.Client):
 
         # get the content based on the datatype
         # TODO: Add support for the MEME datatype
-        selector, attribute = None, None
+        selector: str = ""
+        attribute: str = ""
         match info.post_type:
+            # main selectors
             case PostType.PICTURE:
                 (selector, attribute) = Post.PICTURE_SEL
             case PostType.VIDEO:
                 (selector, attribute) = Post.VIDEO_SEL
             case PostType.GIF:
                 (selector, attribute) = Post.GIF_SEL
+
+            # not implemented yet
             case PostType.MEME:
                 self._logger.error(
                     "Can't parse datatype %s from %s, replace 'meme/' with one of; picture, gif or video.",
@@ -611,6 +615,8 @@ class FunnyBot(discord.Client):
                 raise NotImplementedError(
                     f"Can't parse datatype {PostType.MEME} from {url}, replace 'meme/' with one of; picture, gif or video."
                 )
+
+            # unknown datatype
             case _:
                 self._logger.error(
                     "Encountered bad datatype when parsing %s was %s",
@@ -621,30 +627,56 @@ class FunnyBot(discord.Client):
                     f"Encountered bad datatype when parsing {url} was {info.post_type.name}"
                 )
 
+        # debugging
+        assert len(selector) > 0, "bad selector"
+        assert len(attribute) > 0, "bad attribute"
+        assert selector is not None, "selector was None, wtf?"
+        assert attribute is not None, "attribute was None, wtf?"
+
         # make safe selector object
-        sel = generate_safe_selector(dom)
+        find_selector = generate_safe_selector(dom)
 
-        # if any line fails, the entire function fails, therefore,
-        # this can all exist in a try/catch block
+        def make_to_string(obj: str | list[str] | None) -> str:
+            """
+            Ensures that the passed object becomes a string.
+            If it is None, return an empty string.
+            If it is a list of length one, then return an empty string.
+            """
+
+            if isinstance(obj, str):
+                return obj
+
+            if isinstance(obj, list):
+                if len(obj) == 0:
+                    return ""
+                return obj[0]
+
+            if obj is None:
+                return ""
+
         try:
-            # getting the actual content of the page
-            info.content_url = sel(selector).get(attribute, None)  # type: ignore
+            # pull the content from the page
+            actual_content_url = find_selector(selector).get(attribute)
 
-            # getting the author
-            info.author = (
-                sel(Post.AUTHOR_SEL[0]).get(Post.AUTHOR_SEL[1], None).replace(" ", "")  # type: ignore
+            # logging
+            self._logger.debug(
+                "actual_content_url = typeof(%s) = %s",
+                actual_content_url,
+                type(actual_content_url),
             )
 
-            # getting the icon of the author (this can fail!)
-            icon_el = dom.css.select_one(Post.ICON_SEL[0])
-            if icon_el is not None:
-                info.icon_url = icon_el.get(Post.ICON_SEL[1], None)  # type: ignore
+            # assigning
+            info.content_url = make_to_string(actual_content_url)
 
-            # getting the number of likes
-            info.likes = sel(Post.LIKES_SEL).text
+            # logging
+            self._logger.debug(
+                "Found the content url from %s where sel=%s, attr=%s, was=%s",
+                url,
+                selector,
+                attribute,
+                info.content_url
+            )
 
-            # getting the number of comments
-            info.comments = sel(Post.COMMENTS_SEL).text
         except ParsingError as reason:
             # better exception handling
             self._logger.error(
@@ -660,6 +692,40 @@ class FunnyBot(discord.Client):
 
             # raising the error
             raise reason
+
+        # pull metadata
+        try:
+            # getting the author
+            info.author = make_to_string(
+                find_selector(Post.AUTHOR_SEL[0]).get(Post.AUTHOR_SEL[1], None)
+            ).replace(" ", "")
+
+            # getting the icon of the author (this can fail!)
+            icon_el = dom.css.select_one(Post.ICON_SEL[0])
+            if icon_el is not None:
+                info.icon_url = make_to_string(icon_el.get(Post.ICON_SEL[1], None))
+
+            # getting the number of likes
+            info.likes = find_selector(Post.LIKES_SEL).text
+
+            # getting the number of comments
+            info.comments = find_selector(Post.COMMENTS_SEL).text
+
+        except ParsingError as reason:
+            # better exception handling
+            self._logger.error(
+                "Failure to parse metadata (of post type %s) from %s, cannot proceed. %s",
+                info.post_type.name,
+                url,
+                reason,
+                exc_info=True,
+            )
+
+            # pickling the website as this is a parsing error
+            self._pickle_website(url, response.text, reason)
+
+            # allowing this exception to pass as this information is not necessarily required
+            pass
 
         except Exception as e:  # type: ignore
             # logging
@@ -1009,10 +1075,17 @@ class FunnyBot(discord.Client):
         """
 
         # creating filename
-        filename = f"{self.pickles_dir}/{datetime.now().timestamp()}-{encode_url(url)}.pickle"
+        filename = (
+            f"{self.pickles_dir}/{datetime.now().timestamp()}-{encode_url(url)}.pickle"
+        )
 
         # creating object
-        payload = {"timestamp": datetime.now().timestamp(), "url": url, "reason": reason, "payload": content}
+        payload = {
+            "timestamp": datetime.now().timestamp(),
+            "url": url,
+            "reason": reason,
+            "payload": content,
+        }
 
         # pickling
         with open(filename, "wb") as p:

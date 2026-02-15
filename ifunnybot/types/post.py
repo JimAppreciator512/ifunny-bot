@@ -34,7 +34,9 @@ class Post(object):
         "data-src",
     )
     LIKES_SEL = "div.T_Se > div > button:nth-child(1) > span.bWIw > span:nth-child(2)"
-    COMMENTS_SEL = "div.T_Se > div > button:nth-child(2) > span.bWIw > span:nth-child(2)"
+    COMMENTS_SEL = (
+        "div.T_Se > div > button:nth-child(2) > span.bWIw > span:nth-child(2)"
+    )
 
     def __init__(
         self,
@@ -68,7 +70,7 @@ class Post(object):
         if self._response:
             return f"<Post: {self._post_type}@{self._url} by {self._author}, type: {self._response or 'undefined'}>"
         return f"<Post: {self._post_type}@{self._url} by {self._author}>"
-    
+
     def __str__(self) -> str:
         return self.__repr__()
 
