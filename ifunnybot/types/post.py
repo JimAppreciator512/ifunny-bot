@@ -25,7 +25,7 @@ class Post(object):
     # these point to some CDN
     PICTURE_SEL = ("meta[property='og:image']", "content")
     VIDEO_SEL = ("meta[property='og:video:url']", "content")
-    GIF_SEL = ("link[rel=preload][as=image]", "href")
+    GIF_SEL = ('meta[property="og:image:secure_url"]', "content")
 
     # other metadata
     AUTHOR_SEL = ("meta[name='author']", "content")

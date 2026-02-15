@@ -2,6 +2,7 @@
 This file contains the bot object.
 """
 
+import re
 import io
 import sys
 import signal
@@ -9,15 +10,16 @@ import pickle
 import asyncio
 import hashlib
 from datetime import datetime
-from typing import Tuple, Optional, Callable
+from typing import Tuple, Optional
 from urllib3.exceptions import NameResolutionError
 
 import pyfsig
 import discord
 import requests
+import imageio.v3 as iio
+from PIL import Image, ImageOps
 from discord import app_commands
 from bs4 import BeautifulSoup as soup
-from PIL import Image, ImageOps
 
 from ifunnybot.core.configuration import Configuration
 from ifunnybot.core.logging import create_logger
@@ -473,6 +475,8 @@ class FunnyBot(discord.Client):
 
         # creating the file object
         filename = f"{filename}.{extension}"
+
+        # casting to a bytes IO object
         file = discord.File(post.content, filename=filename)
 
         return (embed, file, post.content_url, post.post_type)
@@ -742,6 +746,29 @@ class FunnyBot(discord.Client):
         # logging
         self._logger.info("Retrieved from %s: %s", url, repr(info))
 
+        # doing some black magic parsing because iFunny is retarded and hates me
+        if info.post_type == PostType.GIF:
+            # logging
+            self._logger.debug("Caught a gif, need to fuck with the URL to load the actual gif")
+
+            # find the hash of the content (pretty sure it's the hash)
+            match = re.search(r"([a-f0-9]+)_\d\.jpg", info.content_url)
+            self._logger.debug("match=%s", match)
+            
+            # raise an error
+            if match is None:
+                raise ParsingError("Failed to find the hash of the post, can't manipulate the link to obtain the gif")
+    
+            # pull it out
+            hsh = match.group(1)
+
+            # make a new content url
+            info.content_url = f"https://img.ifunny.co/images/{hsh}_1.mp4"
+
+            # logging
+            self._logger.debug("New content url for the gif=%s", info.content_url)
+
+
         # getting the content of the post
         try:
             content = self._retrieve_content(info.content_url)  # type: ignore
@@ -762,16 +789,45 @@ class FunnyBot(discord.Client):
                 f"Error retrieving {info.post_type.name} from {url}."
             ) from reason
 
-        # if the post is an image, crop it
-        if info.post_type == PostType.PICTURE:
-            content.bytes = self._crop_convert(
-                content.bytes,
-                crop=crop,
-                export_format=self.image_export_format,
-                filename=content.url,
-            )
+        match (info.post_type):
+            # if the post is an image, crop it
+            case PostType.PICTURE:
+                # logging
+                self._logger.debug("Cropping image from %s", content.url)
 
-        # setting
+                # cropping
+                content.bytes = self._crop_convert(
+                    content.bytes,
+                    crop=crop,
+                    export_format=self.image_export_format,
+                    filename=content.url,
+                )
+
+            case PostType.GIF:
+                # logging
+                self._logger.debug("Converting video to gif from %s", content.url)
+
+                # extract the frames
+                frames = iio.imread(content.bytes, extension=".mp4", plugin="pyav")
+
+                # convert to a gif
+                gif_bytes = io.BytesIO()
+                iio.imwrite(gif_bytes, frames, extension=".gif", fps=30, loop=0)
+                
+                # logging again
+                self._logger.debug("Converted video to gif, %d bytes", content.bytes.tell())
+
+                # reset the pointer
+                gif_bytes.seek(0)
+
+                # update the bytes of the content
+                content.bytes = gif_bytes
+
+            case _:
+                pass
+
+        
+        # setting the response object back into the post object
         info.response = content
 
         # validate the object
