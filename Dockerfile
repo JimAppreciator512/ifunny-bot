@@ -22,8 +22,7 @@ COPY ./requirements.txt /app/requirements.txt
 # installing packages
 RUN pip install --no-cache-dir \
     --upgrade \
-    -r /app/requirements.txt \
-    --root-user-action
+    -r /app/requirements.txt
 
 FROM pip AS run
 COPY . /app/
