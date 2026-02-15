@@ -2,7 +2,7 @@ config.json
 *.db
 __pycache__/
 *.pyc
-venv/
+venv*/
 .env
 *.pickle
 *.log
